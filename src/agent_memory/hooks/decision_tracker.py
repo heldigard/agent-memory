@@ -233,6 +233,11 @@ def main() -> int:
     today = datetime.now().strftime("%Y-%m-%d")
     appended = 0
     try:
+        if patterns_path.exists() and patterns_path.stat().st_size > 0:
+            with patterns_path.open("r+b") as f:
+                f.seek(-1, 2)
+                if f.read(1) != b"\n":
+                    f.write(b"\n")
         with patterns_path.open("a", encoding="utf-8") as f:
             for d in decisions:
                 entry = f"- [{today}] {d}"

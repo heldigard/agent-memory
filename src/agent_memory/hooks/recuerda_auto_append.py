@@ -85,6 +85,11 @@ def main() -> int:
     entry = f"- {today}: {note}\n"
 
     try:
+        if active.exists() and active.stat().st_size > 0:
+            with active.open("r+b") as f:
+                f.seek(-1, 2)
+                if f.read(1) != b"\n":
+                    f.write(b"\n")
         with active.open("a", encoding="utf-8") as f:
             f.write(entry)
     except OSError:

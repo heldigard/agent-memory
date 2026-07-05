@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -37,7 +36,13 @@ def test_decision_tracker_no_bank(clean_env: Path, monkeypatch) -> None:
                 "message": {
                     "role": "assistant",
                     "content": [
-                        {"type": "text", "text": "DECISION: Adopt AST parsing for all project source files."}
+                        {
+                            "type": "text",
+                            "text": (
+                                "DECISION: Adopt AST parsing for all "
+                                "project source files."
+                            ),
+                        }
                     ],
                 }
             }
@@ -65,7 +70,13 @@ def test_decision_tracker_appends(clean_env: Path, monkeypatch) -> None:
                 "message": {
                     "role": "assistant",
                     "content": [
-                        {"type": "text", "text": "DECISION: Adopt AST parsing for all project source files."}
+                        {
+                            "type": "text",
+                            "text": (
+                                "DECISION: Adopt AST parsing for all "
+                                "project source files."
+                            ),
+                        }
                     ],
                 }
             }
