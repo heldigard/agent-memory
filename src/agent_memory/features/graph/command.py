@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -32,9 +33,7 @@ def _graph_load(path: Path) -> list[dict]:
         try:
             rows.append(json.loads(line))
         except json.JSONDecodeError:
-            print(
-                f"warn: skipping malformed graph line: {line[:80]}", file=__import__("sys").stderr
-            )
+            print(f"warn: skipping malformed graph line: {line[:80]}", file=sys.stderr)
     return rows
 
 
@@ -132,9 +131,8 @@ def graph_show(root: Path) -> int:
     for r in rows:
         sup = f"  SUPERSEDES={r['supersedes']}" if r.get("supersedes") else ""
         ali = f"  aliases={r['aliases']}" if r.get("aliases") else ""
-        print(
-            f"  {r.get('id')}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})  @{r.get('t')}{sup}{ali}"
-        )
+        edge = f"  {r.get('id')}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})"
+        print(f"{edge}  @{r.get('t')}{sup}{ali}")
     return 0
 
 
@@ -177,7 +175,6 @@ def graph_stale(root: Path) -> int:
     print(f"{len(stale)} stale fact(s):")
     for r in stale:
         rid = str(r.get("id") or "?")
-        print(
-            f"  {rid}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})  superseded by {by_map.get(rid, [])}"
-        )
+        edge = f"  {rid}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})"
+        print(f"{edge}  superseded by {by_map.get(rid, [])}")
     return 0

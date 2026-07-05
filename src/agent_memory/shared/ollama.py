@@ -13,6 +13,7 @@ failures, because memory ops must never block on an optional LLM.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -132,10 +133,8 @@ def _load_cache(path: Path) -> str | None:
 
 
 def _store_cache(path: Path, content: str) -> None:
-    try:
+    with contextlib.suppress(OSError):
         path.write_text(content, encoding="utf-8")
-    except OSError:
-        pass
 
 
 def _prune_cache(max_entries: int = CACHE_MAX_ENTRIES) -> None:
@@ -144,10 +143,8 @@ def _prune_cache(max_entries: int = CACHE_MAX_ENTRIES) -> None:
     except OSError:
         return
     for path in files[: max(0, len(files) - max_entries)]:
-        try:
+        with contextlib.suppress(OSError):
             path.unlink()
-        except OSError:
-            pass
 
 
 def generate(

@@ -8,6 +8,7 @@ embedding model ever changes.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from dataclasses import dataclass
@@ -194,10 +195,8 @@ def _persist_or_clear(idx: Path, records: list[dict], vectors: np.ndarray) -> No
         save_index(idx, vectors, records)
         return
     for f in (idx / VECTORS_FILE, idx / MANIFEST_FILE):
-        try:
+        with contextlib.suppress(OSError):
             f.unlink()
-        except OSError:
-            pass
 
 
 @dataclass

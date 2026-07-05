@@ -170,7 +170,7 @@ def read_memory(
 
     emitted = 0
     print(f"## Project Memory Bank: {memory}")
-    order = list(dict.fromkeys(READ_ORDER[:3] + [f"{TOPICS_DIR}/_index.md"] + READ_ORDER[3:]))
+    order = list(dict.fromkeys([*READ_ORDER[:3], f"{TOPICS_DIR}/_index.md", *READ_ORDER[3:]]))
     for name in order:
         path = memory / name
         if not path.exists():

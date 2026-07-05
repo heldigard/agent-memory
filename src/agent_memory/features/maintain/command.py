@@ -123,7 +123,7 @@ def _archive_with_summary(path: Path, max_lines: int, *, no_llm: bool) -> bool:
         f"> Compacted {date.today().isoformat()}: middle archived with LLM summary"
         f" → topics/archive/{path.stem}-{date.today().isoformat()}.md"
     )
-    compacted = header + [note] + lines[-tail_count:]
+    compacted = [*header, note, *lines[-tail_count:]]
     path.write_text("\n".join(compacted) + "\n", encoding="utf-8")
     print(f"  Compacted-with-summary {path.name}: archived {len(middle)} lines")
     return True

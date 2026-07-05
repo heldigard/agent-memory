@@ -31,3 +31,4 @@ htmlcov/
 
 # Local memory bank index (regenerable binary embeddings)
 .memory-bank/.index/
+.claude/

@@ -48,7 +48,7 @@ def archive_old_lines(path: Path, lines: list[str], max_lines: int) -> list[str]
     tail = lines[-tail_count:] if tail_count > 0 else []
     if protected:
         return header + protected + tail
-    return header + [f"> Compacted on {date.today().isoformat()}"] + tail
+    return [*header, f"> Compacted on {date.today().isoformat()}", *tail]
 
 
 def _write_archive(path: Path, archivable: list[str], protected_count: int) -> None:

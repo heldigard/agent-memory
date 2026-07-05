@@ -4,8 +4,8 @@ keyword search, archive-topic, and the auto-maintain checker (no Ollama)."""
 from __future__ import annotations
 
 import json
-from io import StringIO
 from contextlib import redirect_stdout
+from io import StringIO
 
 from agent_memory.features.bank.command import add_entry, add_topic_entry, init_memory, status_bank
 from agent_memory.features.compact.command import archive_topic

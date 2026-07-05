@@ -88,7 +88,7 @@ def _pack_oversized(ctx: ChunkCtx, all_lines: list[str], start: int, end: int) -
     """Greedy line packing for a block larger than ``ctx.max_chars``."""
     cur: list[str] = []
     cur_start = start
-    for ln, line in zip(range(start, end + 1), all_lines):
+    for ln, line in zip(range(start, end + 1), all_lines, strict=False):
         if len(line) >= ctx.max_chars:
             cur = _flush_cur(ctx, cur, cur_start, ln - 1)
             _split_long_line(line, ctx.heading, ln, ctx.max_chars, ctx.chunks)
@@ -103,7 +103,7 @@ def _consolidate(
     ctx: ChunkCtx, cur: list[str], cur_start: int, line: str, ln: int
 ) -> tuple[list[str], int]:
     """Either extend ``cur`` or flush it and start a new one with ``line``."""
-    candidate = cur + [line]
+    candidate = [*cur, line]
     if len("\n".join(candidate)) >= ctx.max_chars and cur:
         ctx.chunks.append(make_chunk(ctx.heading, cur_start, ln - 1, "\n".join(cur)))
         return [line], ln
