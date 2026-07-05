@@ -14,14 +14,14 @@ from pathlib import Path
 
 from agent_memory.features.bank.templates import TOPIC_INDEX_TEMPLATE, render_templates
 from agent_memory.features.compact.command import compact_file
-from agent_memory.features.entries.command import (
+from agent_memory.shared.config import FILES, READ_ORDER, TOPIC_SOFT_LIMIT, TOPICS_DIR
+from agent_memory.shared.entries import (
     filter_lines_for_injection,
     is_duplicate,
     now_iso,
     topic_path,
     validate_status,
 )
-from agent_memory.shared.config import FILES, READ_ORDER, TOPIC_SOFT_LIMIT, TOPICS_DIR
 from agent_memory.shared.paths import bank_dir, file_name
 from agent_memory.shared.text import ensure_safe_text, write_if_missing
 

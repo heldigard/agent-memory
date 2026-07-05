@@ -15,7 +15,7 @@ from pathlib import Path
 
 from agent_memory.shared.config import GRAPH_FILE, GRAPH_PREDICATES
 from agent_memory.shared.paths import bank_dir
-from agent_memory.shared.text import ensure_safe_text
+from agent_memory.shared.text import ensure_safe_text, split_csv  # noqa: F401
 
 
 def graph_path(root: Path) -> Path:
@@ -50,13 +50,6 @@ def _graph_append(path: Path, row: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-
-def split_csv(value: str | None) -> list[str] | None:
-    """Parse a comma-separated CLI arg into a clean list (or None)."""
-    if not value:
-        return None
-    return [v.strip() for v in value.split(",") if v.strip()]
 
 
 def graph_add(root: Path, s: str, p: str, o: str, meta: dict | None = None) -> int:

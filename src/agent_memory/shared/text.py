@@ -26,6 +26,13 @@ def write_if_missing(path: Path, content: str) -> bool:
     return True
 
 
+def split_csv(value: str | None) -> list[str] | None:
+    """Parse a comma-separated CLI arg into a clean list (or None)."""
+    if not value:
+        return None
+    return [v.strip() for v in value.split(",") if v.strip()]
+
+
 def line_count(path: Path) -> int:
     """Count lines in a file, returning 0 on any OS error."""
     try:

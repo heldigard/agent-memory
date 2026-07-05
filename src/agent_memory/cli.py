@@ -29,8 +29,8 @@ from agent_memory.features.graph.command import (
     graph_show,
     graph_stale,
     graph_supersede,
-    split_csv,
 )
+from agent_memory.shared.text import split_csv
 from agent_memory.features.maintain.auto import run_auto_maintain
 from agent_memory.features.maintain.command import handoff, maintain
 from agent_memory.features.search.command import search_memory

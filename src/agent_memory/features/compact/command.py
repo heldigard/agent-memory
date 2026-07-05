@@ -11,8 +11,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from agent_memory.features.entries.command import is_protected_from_archive
 from agent_memory.shared.config import FILES, TOPIC_SOFT_LIMIT, TOPICS_DIR
+from agent_memory.shared.entries import is_protected_from_archive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
 
 
