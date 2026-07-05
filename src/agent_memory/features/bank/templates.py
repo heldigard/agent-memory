@@ -121,7 +121,7 @@ _ACTIVE_CONTEXT = """# Active Context
 - Memory bank initialized.
 
 ## Handoff Format
-When ending a session, run `project-memory handoff` and paste the output here.
+When ending a session, run `agent-memory handoff` and paste the output here.
 """
 
 _PROGRESS = """# Progress
