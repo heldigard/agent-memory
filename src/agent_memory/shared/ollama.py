@@ -32,6 +32,11 @@ DEFAULT_TIMEOUT = 120
 EMBED_TIMEOUT = 60
 CACHE_MAX_TEMP = 0.3
 CACHE_MAX_ENTRIES = 2000
+# Pruning sorts every cache file by mtime; amortize across writes so a hot
+# cache (maintain/audit prompts) doesn't pay the full sort on every store.
+CACHE_PRUNE_EVERY = 50
+# Mutable single-arg holder so the writer avoids a ``global`` statement.
+_store_state: dict[str, int] = {"count": 0}
 OLLAMA_CACHE_DIR = Path.home() / ".claude" / "state" / "ollama-cache"
 
 _THINK_TAGS = (
@@ -175,8 +180,12 @@ def generate(
         return None
     out = _strip_think(str(data.get("response", "")).strip()) or None
     if out is not None and cacheable:
+        _store_state["count"] += 1
         _store_cache(_cache_path(model, prompt, temperature, num_ctx), out)
-        _prune_cache()
+        # Sort is O(N log N) over up to CACHE_MAX_ENTRIES files; only run it
+        # every CACHE_PRUNE_EVERY stores so steady-state cache writes stay cheap.
+        if _store_state["count"] % CACHE_PRUNE_EVERY == 0:
+            _prune_cache()
     return out
 
 

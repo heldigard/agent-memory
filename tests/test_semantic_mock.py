@@ -75,6 +75,55 @@ def test_rebuild_force_reembeds_all(tmp_path: Path, monkeypatch) -> None:
     assert forced["chunks_reembedded"] == forced["chunks"]
 
 
+def test_embed_chunks_parallel_is_order_stable_and_counts_skipped(monkeypatch) -> None:
+    """Parallel embed path must return records in INPUT order and count skips."""
+    from agent_memory.features.semantic.index import (
+        _collect_embed_results,
+        _embed_chunks_parallel,
+        _FileChunk,
+    )
+
+    chunks = [
+        _FileChunk(
+            rel=f"f{i}.md",
+            mtime=0.0,
+            ch={
+                "heading": "# h",
+                "start": 1,
+                "end": 2,
+                "text": f"body {i}",
+                "sha256": f"h{i}",
+            },
+        )
+        for i in range(6)
+    ]
+
+    # Worker sleeps scale with text length so threads finish OUT of submission
+    # order — proving the reducer relies on `map` order, not wall-clock order.
+    def slow_embed(text: str, *, model: str = "m", timeout: float = 60.0):
+        import time
+
+        time.sleep(0.01 * (10 - len(text)))  # shorter text → longer wait
+        return [float(len(text)), 0.0, 0.0]
+
+    monkeypatch.setattr(index_mod, "ollama_embed", slow_embed)
+    records, vecs, skipped = _embed_chunks_parallel(chunks, workers=4)
+    assert skipped == 0
+    assert [r["file"] for r in records] == [f"f{i}.md" for i in range(6)]
+    assert len(vecs) == 6
+
+    # Reducer also drops None (failed embed) and counts it as skipped.
+    mixed: list[tuple[_FileChunk, list[float] | None]] = [
+        (chunks[0], [1.0, 0.0, 0.0]),
+        (chunks[1], None),
+        (chunks[2], [3.0, 0.0, 0.0]),
+    ]
+    rec2, vecs2, skipped2 = _collect_embed_results(mixed)
+    assert skipped2 == 1
+    assert [r["file"] for r in rec2] == ["f0.md", "f2.md"]
+    assert len(vecs2) == 2
+
+
 def test_dense_search_returns_scored_records(tmp_path: Path, monkeypatch) -> None:
     _patch_embed(monkeypatch)
     _seed_bank(tmp_path)

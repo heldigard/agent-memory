@@ -7,8 +7,10 @@ is opt-in (slow), never on the SessionStart auto path.
 
 from __future__ import annotations
 
+import functools
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 import numpy as np
@@ -106,12 +108,23 @@ _STOPWORDS = frozenset(
 
 
 def tokenize(text: str) -> list[str]:
-    """Lowercased word tokens (len>2, stopword-stripped). Shared by BM25."""
-    return [
+    """Lowercased word tokens (len>2, stopword-stripped). Shared by BM25.
+
+    Memoized: BM25 re-tokenizes the whole manifest per query, and most chunks
+    are stable across the SessionStart/``semrecall`` path, so caching the parse
+    of repeated texts saves real work as the bank grows. Returns a fresh list to
+    callers that mutate; the cached copy is never mutated in place."""
+    return list(_tokenize_cached(text))
+
+
+@functools.lru_cache(maxsize=4096)
+def _tokenize_cached(text: str) -> tuple[str, ...]:
+    toks = [
         m.group(0).lower()
         for m in _TOKEN_RE.finditer(text)
         if len(m.group(0)) > 2 and m.group(0).lower() not in _STOPWORDS
     ]
+    return tuple(toks)
 
 
 def bm25_scores(
@@ -134,13 +147,18 @@ def bm25_scores(
 
 
 def _bm25_rank(ctx: Bm25Ctx) -> list[tuple[int, float]]:
-    """Score every non-empty doc; return ``(index, score)`` descending."""
+    """Score every non-empty doc; return ``(index, score)`` descending.
+
+    Per-doc term frequencies come from one ``Counter(d)`` build (O(L)) instead
+    of ``d.count(w)`` per query term (O(L*Q)) — a real speedup on long chunks
+    and multi-term queries."""
     scored: list[tuple[int, float]] = []
     for i, d in enumerate(ctx.docs):
         if not d:
             continue
         denom = BM25_K1 * (1 - BM25_B + BM25_B * len(d) / (ctx.avgdl + 1e-9))
-        tf = {w: d.count(w) for w in ctx.df if w in d}
+        counts = Counter(d)
+        tf = {w: counts[w] for w in ctx.df if w in counts}
         s = _bm25_doc_score(ctx, tf, denom)
         if s > 0:
             scored.append((i, s))
@@ -181,7 +199,13 @@ def dense_scores(
     qn = np.asarray(q, dtype=np.float32)
     qn = qn / (np.linalg.norm(qn) + 1e-9)
     scores = vectors @ qn
-    top = np.argsort(-scores)[:limit]
+    # argpartition = O(N) top-k vs argsort's O(N log N); only the small top slice
+    # is then sorted, so per-query cost stays linear in the index size.
+    limit = min(limit, scores.shape[0])
+    if limit <= 0:
+        return []
+    part = np.argpartition(-scores, limit - 1)[:limit]
+    top = part[np.argsort(-scores[part])]
     return [(int(i), float(scores[i])) for i in top]
 
 

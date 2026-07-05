@@ -18,8 +18,11 @@ query (no per-query renormalization of the whole matrix).
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import json
 import os
+import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -95,16 +98,44 @@ def build_index(root: Path, rebuild: bool = False) -> dict:
     Re-chunks every current file (cheap) and reuses the stored vector for any
     chunk whose ``sha256`` is already in the manifest — so only genuinely new or
     changed chunks get embedded, even when a whole file was touched.
+
+    Serialized by an exclusive ``fcntl.flock`` on ``.index/.build.lock`` so two
+    concurrent ``semindex`` runs (e.g. CLI + auto-maintain) can't interleave:
+    the second waits, then finds everything already indexed (cheap reuse path).
     """
     memory = bank_dir(root)
     idx = index_dir(root)
     if not memory.exists():
         return {"error": f"no memory bank at {memory}"}
+    with _build_lock(idx):
+        return _build_index_locked(memory, idx, rebuild)
+
+
+@contextlib.contextmanager
+def _build_lock(idx: Path):
+    """Exclusive lock held for the whole build. ``flock`` auto-releases on exit."""
+    idx.mkdir(parents=True, exist_ok=True)
+    lock_path = idx / ".build.lock"
+    # Try non-blocking first so we can print a "waiting" notice if contended.
+    with open(lock_path, "w", encoding="utf-8") as fd:
+        try:
+            fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("agent-memory: index build in progress; waiting for lock…", file=sys.stderr)
+            fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+
+
+def _build_index_locked(memory: Path, idx: Path, rebuild: bool) -> dict:
+    """Build the index assuming the build lock is already held."""
     existing_vectors, existing_manifest, model_changed, version_changed = _load_or_reset(
         idx, rebuild
     )
     files = iter_memory_files(memory)
-    current = {str(p.relative_to(memory)): p.stat().st_mtime for p in files}
+    current = {str(p.relative_to(memory)) for p in files}
 
     vec_by_hash = _vector_by_sha256(existing_manifest, existing_vectors)
     all_chunks = _gather_chunks(files, memory)
@@ -209,7 +240,23 @@ def _partition_by_hash(
 
 
 def _embed_chunks(to_embed: list[_FileChunk]) -> tuple[list[dict], list[np.ndarray], int]:
-    """Embed every chunk in ``to_embed``; return (records, vectors, skipped)."""
+    """Embed every chunk in ``to_embed``; return ``(records, vectors, skipped)``.
+
+    Embeddings are independent HTTP calls to local Ollama, so a thread pool
+    parallelizes them. Results stay order-stable (``map`` preserves input order)
+    and the worker count is bounded (default 4, env-tunable) so we don't
+    saturate the daemon on a large first-time build. Falls back to serial when
+    only one chunk is needed or the pool is disabled."""
+    if len(to_embed) <= 1:
+        return _embed_chunks_serial(to_embed)
+    workers = _embed_workers()
+    if workers <= 1:
+        return _embed_chunks_serial(to_embed)
+    return _embed_chunks_parallel(to_embed, workers)
+
+
+def _embed_chunks_serial(to_embed: list[_FileChunk]) -> tuple[list[dict], list[np.ndarray], int]:
+    """Serial embedding path (also the single-chunk fast path)."""
     records: list[dict] = []
     vecs: list[np.ndarray] = []
     skipped = 0
@@ -221,6 +268,53 @@ def _embed_chunks(to_embed: list[_FileChunk]) -> tuple[list[dict], list[np.ndarr
         records.append(_record(fc.rel, fc.mtime, fc.ch))
         vecs.append(np.asarray(vec, dtype=np.float32))
     return records, vecs, skipped
+
+
+def _embed_chunks_parallel(
+    to_embed: list[_FileChunk], workers: int
+) -> tuple[list[dict], list[np.ndarray], int]:
+    """Order-stable parallel embedding via ``ThreadPoolExecutor.map``.
+
+    ``map`` yields results in input order, so records/vectors align with the
+    manifest ordering the serial path produced (tests and dedup-by-sha256 don't
+    care about order, but stable order keeps diffs readable)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _one(fc: _FileChunk) -> list[float] | None:
+        return ollama_embed(fc.ch["text"])
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(zip(to_embed, pool.map(_one, to_embed), strict=True))
+    return _collect_embed_results(results)
+
+
+def _collect_embed_results(
+    results: Iterable[tuple[_FileChunk, list[float] | None]],
+) -> tuple[list[dict], list[np.ndarray], int]:
+    """Reduce ordered ``(chunk, vector|None)`` pairs to records + vectors + skipped."""
+    records: list[dict] = []
+    vecs: list[np.ndarray] = []
+    skipped = 0
+    for fc, vec in results:
+        if vec is None:
+            skipped += 1
+            continue
+        records.append(_record(fc.rel, fc.mtime, fc.ch))
+        vecs.append(np.asarray(vec, dtype=np.float32))
+    return records, vecs, skipped
+
+
+def _embed_workers() -> int:
+    """Thread count for parallel embed (env ``AGENT_MEMORY_EMBED_WORKERS``, default 4).
+
+    Bounded so a one-shot ``semindex`` doesn't fire hundreds of concurrent
+    requests at the daemon. Set to 1 to force the serial path."""
+    raw = os.environ.get("AGENT_MEMORY_EMBED_WORKERS", "4")
+    try:
+        n = int(raw)
+    except ValueError:
+        return 4
+    return max(1, n)
 
 
 def _record(rel: str, mtime: float, ch: dict) -> dict:

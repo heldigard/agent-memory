@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -47,6 +48,20 @@ class MaintCtx:
     ollama_up: bool
     report: list[str] = field(default_factory=list)
     applied: list[str] = field(default_factory=list)
+
+
+@dataclass
+class HandoffSection:
+    """One source file's contribution to the session handoff summary.
+
+    Bundles (path, heading, extractor, limit) so ``_extend_handoff`` takes one
+    config arg instead of four — keeps the call sites readable and the param
+    count under the vertical-slice guard's budget."""
+
+    path: Path
+    heading: str
+    extractor: Callable[[list[str], int], list[str]]
+    limit: int
 
 
 def _maint_model() -> str:
@@ -105,9 +120,15 @@ def _audit_file(filename: str, content: str, *, no_llm: bool) -> str | None:
     return raw.strip().strip('"').strip("'") if raw else None
 
 
-def _archive_with_summary(path: Path, max_lines: int, *, no_llm: bool) -> bool:
-    """Additive compaction: archive the middle block with a 1-3 line summary."""
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+def _archive_with_summary(
+    path: Path, max_lines: int, *, no_llm: bool, lines: list[str] | None = None
+) -> bool:
+    """Additive compaction: archive the middle block with a 1-3 line summary.
+
+    ``lines`` accepts the already-read file content so the caller (``_process_file``)
+    avoids a second read; it falls back to reading when called standalone."""
+    if lines is None:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     if len(lines) <= max_lines:
         return False
     header = lines[:1] if lines else [f"# {path.stem}"]
@@ -123,7 +144,10 @@ def _archive_with_summary(path: Path, max_lines: int, *, no_llm: bool) -> bool:
         f"> Compacted {date.today().isoformat()}: middle archived with LLM summary"
         f" → topics/archive/{path.stem}-{date.today().isoformat()}.md"
     )
-    compacted = [*header, note, *lines[-tail_count:]]
+    # tail_count == 0 → lines[-0:] == full list (Python slicing gotcha) → file would
+    # GROW. Guard exactly like compact.archive_old_lines: empty tail when no budget.
+    tail = lines[-tail_count:] if tail_count > 0 else []
+    compacted = [*header, note, *tail]
     path.write_text("\n".join(compacted) + "\n", encoding="utf-8")
     print(f"  Compacted-with-summary {path.name}: archived {len(middle)} lines")
     return True
@@ -175,7 +199,11 @@ def _process_file(ctx: MaintCtx, cf: CoreFile) -> None:
     ctx.report.append(f"## {cf.name} — {len(lines)}/{cf.limit} lines ({pct}%){flag}")
     ctx.report.append(f"*{cf.desc}*")
     ctx.report.append("")
-    if ctx.apply_safe and pct >= 80 and _archive_with_summary(cf.path, cf.limit, no_llm=ctx.no_llm):
+    if (
+        ctx.apply_safe
+        and pct >= 80
+        and _archive_with_summary(cf.path, cf.limit, no_llm=ctx.no_llm, lines=lines)
+    ):
         ctx.applied.append(cf.name)
     _emit_audit(ctx, cf.name, lines)
 
@@ -238,10 +266,17 @@ def handoff(root: Path) -> None:
     memory = bank_dir(root)
     today = date.today().isoformat()
     parts = [f"## Session Handoff - {today}"]
-    _extend_handoff(parts, memory / "currentTask.md", "\n### Active Task", _active_task_lines, 5)
-    _extend_handoff(parts, memory / "progress.md", "\n### Recent Progress", _recent_progress, 5)
     _extend_handoff(
-        parts, memory / "activeContext.md", "\n### Previous Context", _previous_context, 3
+        parts,
+        HandoffSection(memory / "currentTask.md", "\n### Active Task", _active_task_lines, 5),
+    )
+    _extend_handoff(
+        parts,
+        HandoffSection(memory / "progress.md", "\n### Recent Progress", _recent_progress, 5),
+    )
+    _extend_handoff(
+        parts,
+        HandoffSection(memory / "activeContext.md", "\n### Previous Context", _previous_context, 3),
     )
     parts.append("\n### Next Steps")
     parts.append("- [ ] TODO: Fill in next steps before ending session")
@@ -251,14 +286,14 @@ def handoff(root: Path) -> None:
     print(f"\n# Copy the section above into {memory / 'activeContext.md'}")
 
 
-def _extend_handoff(parts: list[str], path: Path, heading: str, extractor, limit: int) -> None:
-    """Append ``heading`` + up to ``limit`` extracted lines from ``path`` if present."""
-    if not path.exists():
+def _extend_handoff(parts: list[str], section: HandoffSection) -> None:
+    """Append ``section.heading`` + up to ``section.limit`` extracted lines if present."""
+    if not section.path.exists():
         return
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    selected = extractor(lines, limit)
+    lines = section.path.read_text(encoding="utf-8", errors="replace").splitlines()
+    selected = section.extractor(lines, section.limit)
     if selected:
-        parts.append(heading)
+        parts.append(section.heading)
         parts.extend(selected)
 
 

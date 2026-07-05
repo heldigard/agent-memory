@@ -7,7 +7,11 @@ from __future__ import annotations
 from contextlib import redirect_stdout
 from io import StringIO
 
-from agent_memory.features.maintain.command import handoff, maintain
+from agent_memory.features.maintain.command import (
+    _archive_with_summary,
+    handoff,
+    maintain,
+)
 
 
 def _seed_bank(tmp_path) -> None:
@@ -56,3 +60,23 @@ def test_maintain_no_llm_can_write_report_to_file(tmp_path) -> None:
         maintain(tmp_path, apply_safe=False, no_llm=True, output=str(out_path))
     assert out_path.exists()
     assert "Memory Bank Audit" in out_path.read_text(encoding="utf-8")
+
+
+def test_archive_with_summary_shrinks_when_tail_count_zero(tmp_path) -> None:
+    """Regression: ``lines[-0:]`` == full list when tail_count==0 → the file used to
+    GROW. The guard must yield header + note only (≤ max_lines)."""
+    path = tmp_path / "systemPatterns.md"
+    path.write_text("# Patterns\n" + "\n".join(f"- rule {i}" for i in range(6)), encoding="utf-8")
+    before = path.read_text(encoding="utf-8").splitlines()
+    buf = StringIO()
+    with redirect_stdout(buf):
+        # max_lines=3 → tail_count = max(0, 3 - 1 - 2) == 0 (the bug path)
+        changed = _archive_with_summary(path, max_lines=3, no_llm=True)
+    after = path.read_text(encoding="utf-8").splitlines()
+    assert changed is True
+    assert len(after) <= 3, f"file grew or stayed oversized: {len(after)} lines\n{after}"
+    assert len(after) < len(before), "archive must shrink the source file"
+    # archived copy holds the removed middle (archive_dir = path.parent / topics/archive)
+    matches = sorted((tmp_path / "topics" / "archive").glob("systemPatterns-*.md"))
+    assert matches, "archive file must exist"
+    assert "rule 0" in matches[0].read_text(encoding="utf-8")
