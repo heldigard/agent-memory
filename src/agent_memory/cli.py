@@ -33,14 +33,6 @@ from agent_memory.features.graph.command import (
 from agent_memory.features.maintain.auto import run_auto_maintain
 from agent_memory.features.maintain.command import handoff, maintain
 from agent_memory.features.search.command import search_memory
-from agent_memory.features.semantic.command import (
-    SearchOpts,
-    cmd_clean,
-    cmd_index,
-    cmd_recall,
-    cmd_search,
-    cmd_status,
-)
 from agent_memory.shared.paths import project_root
 from agent_memory.shared.text import split_csv
 
@@ -201,16 +193,26 @@ def main() -> int:
         search_memory(root, args.query, max_results=args.max_results)
         return 0
     if cmd == "semsearch":
+        from agent_memory.features.semantic.command import SearchOpts, cmd_search
+
         return cmd_search(
             root, args.query, args.k, SearchOpts(args.min_score, args.dense, args.rerank)
         )
     if cmd == "semindex":
+        from agent_memory.features.semantic.command import cmd_index
+
         return cmd_index(root, args.rebuild)
     if cmd == "semstatus":
+        from agent_memory.features.semantic.command import cmd_status
+
         return cmd_status(root)
     if cmd == "semclean":
+        from agent_memory.features.semantic.command import cmd_clean
+
         return cmd_clean(root)
     if cmd == "semrecall":
+        from agent_memory.features.semantic.command import cmd_recall
+
         return cmd_recall(root, args.k, args.query, args.min_score, args.full)
     if cmd == "coord":
         return coord_cleanup(root) if args.cleanup else coord_status(root)
