@@ -1,10 +1,13 @@
 # Context
 > Current state of agent-memory
 
-- Vertical-slice package: 8 features (bank/entries/compact/search/semantic/graph/maintain/coord) + shared infra.
-- CLI entry: `agent-memory` (or `project-memory` symlink). Python 3.11+.
-- Hybrid search: BM25 + dense RRF via Ollama embeddings (nomic-embed-text, 768-d).
-- Graph: triple store (`s,p,o`) with join queries via `agent-memory graph`.
-- `maintain`: LLM-assisted memory bank audit (local Ollama proposes, big model decides).
-- Tests: 131 tests, ruff+mypy clean. Coverage 80%. Editable install: `pip install -e ~/agent-memory`.
-- Shim contract: `~/.claude/scripts/project-memory.py` (19 lines) delegates to `~/.local/bin/agent-memory`.
+- Vertical-slice package: 9 features (bank/entries/compact/search/semantic/graph/maintain/coord/**doctor**) + `shared/` + `hooks/`.
+- CLI entry: `agent-memory` (or `project-memory` symlink). Python ≥3.11. `--version`, `--root` global flags.
+- Hybrid search: BM25 + dense RRF via local Ollama embeddings (`embeddinggemma`, 768-d). Degrades to keyword when daemon down.
+- BM25 path is memoized (`lru_cache` tokenize) + `Counter(d)` per doc + `argpartition` top-k; embed parallel via `ThreadPoolExecutor` (`AGENT_MEMORY_EMBED_WORKERS=4`).
+- Index build serialized via `fcntl.flock` on `.index/.build.lock`; chunk-level sha256 dedup + model/version sidecars.
+- Graph: triple store (`s,p,o`) with alias-aware query + 2-hop join via `agent-memory graph`.
+- `maintain`: LLM-assisted audit (propose-only); `--apply-safe` additive compaction. `doctor`: proactive health check (budgets/refs/PIDs/index/collisions).
+- `status`/`doctor`/`auto-maintain-check` all emit `--json` for hook/quota consumption.
+- Tests: 150, ruff+mypy+VS-guard clean. Editable install: `uv pip install -e ".[test]"`.
+- Shim contract: `~/.claude/scripts/project-memory.py` delegates to `~/.local/bin/agent-memory`.
