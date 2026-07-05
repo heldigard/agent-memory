@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,7 @@ from agent_memory.features.bank.command import (
 )
 from agent_memory.features.compact.command import archive_topic, compact_memory
 from agent_memory.features.coord.command import coord_cleanup, coord_status
+from agent_memory.features.doctor.command import doctor
 from agent_memory.features.graph.command import (
     graph_add,
     graph_join,
@@ -43,11 +46,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         prog="agent-memory",
         description="Persistent per-project memory (.memory-bank/) for LLM coding agents.",
     )
+    # argparse reports --version itself (exit 0); fallback string covers a
+    # non-installed (no metadata) dev checkout.
+    try:
+        _ver = pkg_version("agent-memory-cli")
+    except PackageNotFoundError:
+        _ver = "0.0.0+local"
+    parser.add_argument("--version", action="version", version=f"agent-memory {_ver}")
     parser.add_argument("--root", type=Path, help="Project root override")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("init", help="Create standard .memory-bank files if missing")
-    sub.add_parser("status", help="Show memory bank files and line counts")
+    status_p = sub.add_parser("status", help="Show memory bank files and line counts")
+    status_p.add_argument("--json", action="store_true", help="Emit a machine-readable snapshot")
     sub.add_parser("handoff", help="Generate a session handoff summary for activeContext.md")
     compact = sub.add_parser("compact", help="Enforce line budgets on core memory files")
     compact.add_argument("--topics", action="store_true", help="Also compact topic files")
@@ -111,6 +122,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     coord = sub.add_parser("coord", help="Cross-CLI agent coordination registry")
     coord.add_argument("--cleanup", action="store_true")
 
+    doc = sub.add_parser(
+        "doctor",
+        help="Health check: budgets, broken refs, dead PIDs, index consistency",
+    )
+    doc.add_argument("--json", action="store_true", help="Emit findings as JSON")
+
     graph = sub.add_parser("graph", help="Context-graph triples (decisions.graph.jsonl)")
     gsub = graph.add_subparsers(dest="graph_cmd", required=True)
     _add_graph_parsers(gsub)
@@ -164,7 +181,7 @@ def main() -> int:
         init_memory(root)
         return 0
     if cmd == "status":
-        status_bank(root)
+        status_bank(root, json_out=args.json)
         return 0
     if cmd == "handoff":
         handoff(root)
@@ -227,6 +244,8 @@ def main() -> int:
         return 0
     if cmd == "graph":
         return _dispatch_graph(args, root)
+    if cmd == "doctor":
+        return doctor(root, json_out=args.json)
     return 0
 
 

@@ -49,32 +49,88 @@ def _core_flag(name: str, n: int) -> str:
     return "ok" if n <= limit else f"over limit {n}/{limit}"
 
 
-def status_bank(root: Path) -> None:
-    """Print bank location, per-file line counts vs budgets, and staleness."""
+def status_data(root: Path, threshold_days: int | None = None) -> dict:
+    """Return a structured bank snapshot (root, files, topics, stale) — pure data.
+
+    Used by both the human ``status`` renderer and the machine-readable ``--json``
+    output so they never drift apart. Missing bank → ``{"exists": False}``."""
     memory = bank_dir(root)
-    print(f"Project root: {root}")
-    print(f"Memory bank: {memory}")
+    data: dict = {"project_root": str(root), "memory_bank": str(memory), "exists": memory.exists()}
     if not memory.exists():
-        print("Status: missing")
-        return
-    print("Status: present")
+        return data
+    files = []
     for name in READ_ORDER:
         path = memory / name
         if not path.exists():
-            print(f"- {name}: missing")
+            files.append({"name": name, "present": False})
             continue
         n = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
-        print(f"- {name}: {n} lines ({_core_flag(name, n)})")
-    topics = sorted((memory / TOPICS_DIR).glob("*.md"))
-    topic_files = [p for p in topics if p.name != "_index.md"]
-    print(f"- {TOPICS_DIR}/: {len(topic_files)} topic files")
-    for path in topic_files[:10]:
-        n = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
-        flag = "ok" if n <= TOPIC_SOFT_LIMIT else f"large {n}/{TOPIC_SOFT_LIMIT}; read selectively"
-        print(f"  - {path.name}: {n} lines ({flag})")
-    if len(topic_files) > 10:
-        print(f"  ... {len(topic_files) - 10} more topics")
-    _report_staleness(memory)
+        files.append({"name": name, "present": True, "lines": n, "flag": _core_flag(name, n)})
+    data["files"] = files
+    topic_files = [p for p in sorted((memory / TOPICS_DIR).glob("*.md")) if p.name != "_index.md"]
+    data["topics"] = {"count": len(topic_files), "items": _topic_items(topic_files)}
+    data["stale"] = _collect_stale_json(memory, threshold_days)
+    return data
+
+
+def _topic_items(topic_files: list[Path]) -> list[dict]:
+    """Per-topic ``{name, lines, over_limit}`` — reads each file once."""
+    out: list[dict] = []
+    for p in topic_files:
+        n = len(p.read_text(encoding="utf-8", errors="replace").splitlines())
+        out.append({"name": p.name, "lines": n, "over_limit": n > TOPIC_SOFT_LIMIT})
+    return out
+
+
+def _collect_stale_json(memory: Path, threshold_days: int | None) -> list[dict]:
+    """Stale date-prefixed entries as ``{file, snippet, date}`` dicts."""
+    threshold = _resolve_threshold_days(threshold_days)
+    cutoff = date.today() - timedelta(days=threshold)
+    date_re = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+    out: list[dict] = []
+    for name, snippet, d in _collect_stale(memory, date_re, cutoff):
+        out.append({"file": name, "date": d.isoformat(), "snippet": snippet})
+    return out
+
+
+def status_bank(root: Path, *, json_out: bool = False) -> None:
+    """Print bank status — human report (default) or ``--json`` machine snapshot."""
+    if json_out:
+        import json
+
+        print(json.dumps(status_data(root), ensure_ascii=False, indent=2))
+        return
+    memory = bank_dir(root)
+    data = status_data(root)
+    print(f"Project root: {root}")
+    print(f"Memory bank: {memory}")
+    if not data["exists"]:
+        print("Status: missing")
+        return
+    print("Status: present")
+    for f in data["files"]:
+        if not f["present"]:
+            print(f"- {f['name']}: missing")
+        else:
+            print(f"- {f['name']}: {f['lines']} lines ({f['flag']})")
+    topics = data["topics"]
+    print(f"- {TOPICS_DIR}/: {topics['count']} topic files")
+    for t in topics["items"][:10]:
+        flag = "ok" if not t["over_limit"] else "large; read selectively"
+        print(f"  - {t['name']}: {t['lines']} lines ({flag})")
+    if topics["count"] > 10:
+        print(f"  ... {topics['count'] - 10} more topics")
+    stale = data["stale"]
+    if stale:
+        threshold = _resolve_threshold_days(None)
+        print(
+            f"- staleness: {len(stale)} entr{'y' if len(stale) == 1 else 'ies'} > {threshold}d"
+            " (set MEMORY_STALENESS_DAYS to tune; archive to topics/)"
+        )
+        for s in stale[:8]:
+            print(f"  - {s['date']} {s['file']}: {s['snippet']}")
+        if len(stale) > 8:
+            print(f"  ... {len(stale) - 8} more stale entries")
 
 
 def _parse_line_date(line: str, date_re: re.Pattern[str]) -> date | None:
@@ -122,27 +178,6 @@ def _collect_stale(
             continue
         stale.extend(_stale_lines(name, path, date_re, cutoff))
     return stale
-
-
-def _report_staleness(memory: Path, threshold_days: int | None = None) -> None:
-    """Flag date-prefixed entries in core files older than the threshold.
-
-    Informational only — never edits. Helps catch stale handoffs."""
-    threshold = _resolve_threshold_days(threshold_days)
-    cutoff = date.today() - timedelta(days=threshold)
-    date_re = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
-    stale = _collect_stale(memory, date_re, cutoff)
-    if not stale:
-        return
-    stale.sort(key=lambda x: x[2])
-    print(
-        f"- staleness: {len(stale)} entr{'y' if len(stale) == 1 else 'ies'} > {threshold}d"
-        " (set MEMORY_STALENESS_DAYS to tune; archive to topics/)"
-    )
-    for name, snippet, d in stale[:8]:
-        print(f"  - {d.isoformat()} {name}: {snippet}")
-    if len(stale) > 8:
-        print(f"  ... {len(stale) - 8} more stale entries")
 
 
 def read_memory(

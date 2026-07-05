@@ -15,6 +15,17 @@ from agent_memory.hooks.decision_tracker import extract_decisions, main
 @pytest.fixture
 def clean_env(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    # Hermeticity: WORKER_ENV_VARS / DECISION_TRACKER_DISABLE leak from the host
+    # proxy shell into the pytest subprocess and would short-circuit main()
+    # before it reads stdin, making the append tests flake. Clear them so the
+    # hook runs the full path under test.
+    for var in (
+        "DECISION_TRACKER_DISABLE",
+        "CODEX_WORKER",
+        "NO_DELEGATE",
+        "CLAUDE_CODE_SUBAGENT_MODEL",
+    ):
+        monkeypatch.delenv(var, raising=False)
     return tmp_path
 
 
@@ -38,10 +49,7 @@ def test_decision_tracker_no_bank(clean_env: Path, monkeypatch) -> None:
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                "DECISION: Adopt AST parsing for all "
-                                "project source files."
-                            ),
+                            "text": ("DECISION: Adopt AST parsing for all project source files."),
                         }
                     ],
                 }
@@ -72,10 +80,7 @@ def test_decision_tracker_appends(clean_env: Path, monkeypatch) -> None:
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                "DECISION: Adopt AST parsing for all "
-                                "project source files."
-                            ),
+                            "text": ("DECISION: Adopt AST parsing for all project source files."),
                         }
                     ],
                 }

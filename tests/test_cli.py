@@ -11,6 +11,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from agent_memory import cli
 
 
@@ -57,6 +59,32 @@ def test_cli_init_then_status(tmp_path: Path, capsys) -> None:
     assert _run(["--root", str(tmp_path), "status"]) == 0
     out = capsys.readouterr().out
     assert "Status: present" in out
+
+
+def test_cli_status_json_emits_valid_snapshot(tmp_path: Path, capsys) -> None:
+    import json
+
+    assert _run(["--root", str(tmp_path), "init"]) == 0
+    capsys.readouterr()
+    assert _run(["--root", str(tmp_path), "status", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["exists"] is True
+    assert isinstance(data["files"], list)
+    assert isinstance(data["topics"], dict)
+    assert isinstance(data["stale"], list)
+
+
+def test_cli_doctor_json_round_trips(tmp_path: Path, capsys) -> None:
+    import json
+
+    assert _run(["--root", str(tmp_path), "init"]) == 0
+    capsys.readouterr()
+    rc = _run(["--root", str(tmp_path), "doctor", "--json"])
+    data = json.loads(capsys.readouterr().out)
+    assert isinstance(data, list)
+    # fresh empty bank → only info-severity findings (e.g. no-index), exit 0
+    assert rc == 0
+    assert all(isinstance(d, dict) for d in data)
 
 
 def test_cli_add_then_keyword_search(tmp_path: Path, capsys) -> None:
@@ -142,3 +170,15 @@ def test_main_module_entry() -> None:
     from agent_memory import __main__
 
     assert callable(__main__.main)
+
+
+def test_cli_version_flag(capsys) -> None:
+    """``--version`` prints ``agent-memory <version>`` and exits 0."""
+    sys.argv = ["agent-memory", "--version"]
+    with pytest.raises(SystemExit) as exc:
+        cli.parse_args(["--version"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert out.startswith("agent-memory "), out
+    # version is non-empty (real metadata or the local fallback), not a bare prefix
+    assert len(out.strip()) > len("agent-memory")
