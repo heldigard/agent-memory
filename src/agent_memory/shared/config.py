@@ -28,6 +28,7 @@ FILES: dict[str, tuple[str, int]] = {
 
 TOPICS_DIR = "topics"
 TOPIC_SOFT_LIMIT = 800
+TOPIC_INDEX_LIMIT = 80  # _index.md is a soft map, not deep content
 
 READ_ORDER: list[str] = [
     "MEMORY.md",
