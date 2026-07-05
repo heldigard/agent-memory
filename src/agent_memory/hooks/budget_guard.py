@@ -15,16 +15,9 @@ import sys
 from pathlib import Path
 
 from agent_memory.shared.config import FILES, TOPIC_INDEX_LIMIT, TOPIC_SOFT_LIMIT, TOPICS_DIR
+from agent_memory.shared.text import line_count
 
 WARN_PCT = 0.80  # 80% threshold for the yellow warning
-
-
-def line_count(path: Path) -> int:
-    try:
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            return sum(1 for _ in fh)
-    except OSError:
-        return 0
 
 
 def format_warning(fname: str, n: int, limit: int) -> str:

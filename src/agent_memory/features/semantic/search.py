@@ -9,7 +9,7 @@ import numpy as np
 
 from agent_memory.shared.config import DEFAULT_K, MIN_SCORE
 from agent_memory.shared.ollama import embed as ollama_embed
-from agent_memory.shared.paths import iter_memory_files
+from agent_memory.shared.paths import iter_all_lines
 
 
 def search(root: Path, query: str, k: int = DEFAULT_K, min_score: float = MIN_SCORE) -> list[dict]:
@@ -58,23 +58,13 @@ def keyword_fallback(root: Path, query: str, k: int = DEFAULT_K) -> list[dict]:
         return []
     cap = k * 4
     hits: list[dict] = []
-    for rel, lineno, line in _iter_keyword_lines(memory):
+    for rel, lineno, line in iter_all_lines(memory):
         if not _any_term(line, terms):
             continue
         hits.append(_fallback_hit(rel, lineno, line))
         if len(hits) >= cap:
             return hits[:cap]
     return hits
-
-
-def _iter_keyword_lines(memory: Path):
-    """Yield ``(relpath, lineno, line)`` for every line in core + topic files."""
-    for path in iter_memory_files(memory):
-        rel = str(path.relative_to(memory))
-        for lineno, line in enumerate(
-            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
-        ):
-            yield rel, lineno, line
 
 
 def _any_term(line: str, terms: list[str]) -> bool:

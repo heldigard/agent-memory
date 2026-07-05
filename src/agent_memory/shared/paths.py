@@ -8,6 +8,7 @@ parent must resolve its OWN bank, not the parent's).
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 
 from agent_memory.shared.config import FILE_ALIASES, FILES, TOPICS_DIR
@@ -62,3 +63,13 @@ def iter_memory_files(memory: Path) -> list[Path]:
     if topics.exists():
         files.extend(topics.glob("*.md"))
     return sorted(files)
+
+
+def iter_all_lines(memory: Path) -> Iterator[tuple[str, int, str]]:
+    """Yield ``(relpath, lineno, line)`` for every line in core + topic files."""
+    for path in iter_memory_files(memory):
+        rel = str(path.relative_to(memory))
+        for lineno, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+        ):
+            yield rel, lineno, line

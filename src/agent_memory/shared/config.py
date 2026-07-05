@@ -82,6 +82,9 @@ NEVER_ARCHIVED: frozenset[str] = frozenset({"active", "wip", "blocked", "live"})
 DEFAULT_ARCHIVE_WINDOW_HOURS = 6.0
 DEFAULT_INJECTION_WINDOW_HOURS = 12.0
 
+# Staleness threshold in days. Overridable via MEMORY_STALENESS_DAYS env var.
+STALENESS_DAYS = 14
+
 # ---------------------------------------------------------------------------
 # Context-graph (decisions.graph.jsonl)
 # ---------------------------------------------------------------------------

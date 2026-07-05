@@ -26,6 +26,15 @@ def write_if_missing(path: Path, content: str) -> bool:
     return True
 
 
+def line_count(path: Path) -> int:
+    """Count lines in a file, returning 0 on any OS error."""
+    try:
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            return sum(1 for _ in fh)
+    except OSError:
+        return 0
+
+
 def slugify(value: str) -> str:
     """Turn a topic name into a filesystem-safe slug (≤80 chars)."""
     slug = re.sub(r"[^a-z0-9._-]+", "-", value.strip().lower())

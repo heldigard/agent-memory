@@ -19,27 +19,16 @@ from agent_memory.shared.config import (
     FILES,
     INDEX_DIRNAME,
     MANIFEST_FILE,
+    STALENESS_DAYS,
+    TOPIC_INDEX_LIMIT,
     TOPIC_SOFT_LIMIT,
     TOPICS_DIR,
 )
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
-from agent_memory.shared.paths import iter_memory_files
+from agent_memory.shared.paths import bank_dir, iter_memory_files
+from agent_memory.shared.text import line_count
 
-STALENESS_DAYS = 21
-TOPIC_INDEX_BUDGET = 80
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
-
-
-def _memory_dir(root: Path) -> Path:
-    return root / ".memory-bank"
-
-
-def _line_count(path: Path) -> int:
-    try:
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            return sum(1 for _ in fh)
-    except OSError:
-        return 0
 
 
 def _parse_entry_date(line: str) -> datetime | None:
@@ -68,7 +57,7 @@ def _file_has_stale_entry(path: Path, cutoff: datetime) -> bool:
 
 def check_staleness(root: Path) -> list[str]:
     """Files (relative path) containing entries older than ``STALENESS_DAYS``."""
-    mb = _memory_dir(root)
+    mb = bank_dir(root)
     if not mb.is_dir():
         return []
     cutoff = datetime.now(UTC) - timedelta(days=STALENESS_DAYS)
@@ -83,13 +72,13 @@ def _over_budget(path: Path, limit: int) -> dict[str, int] | None:
     """Return ``{lines, budget}`` if ``path`` is over ``limit``, else None."""
     if not path.is_file():
         return None
-    count = _line_count(path)
+    count = line_count(path)
     return {"lines": count, "budget": limit} if count > limit else None
 
 
 def check_budgets(root: Path) -> list[dict[str, object]]:
     """Over-budget core + topic files as ``{file, lines, budget}``."""
-    mb = _memory_dir(root)
+    mb = bank_dir(root)
     if not mb.is_dir():
         return []
     over: list[dict[str, object]] = []
@@ -109,7 +98,7 @@ def _collect_topic_overruns(mb: Path, over: list[dict[str, object]]) -> None:
     for tp in topics.glob("*.md"):
         if tp.name.startswith("archive-"):
             continue
-        limit = TOPIC_INDEX_BUDGET if tp.name == "_index.md" else TOPIC_SOFT_LIMIT
+        limit = TOPIC_INDEX_LIMIT if tp.name == "_index.md" else TOPIC_SOFT_LIMIT
         item = _over_budget(tp, limit)
         if item:
             over.append({"file": f"{TOPICS_DIR}/{tp.name}", **item})
@@ -143,7 +132,7 @@ def _refresh_index(root: Path, errors: list[str]) -> bool:
 
 def check_index_freshness(root: Path, errors: list[str]) -> bool:
     """Refresh the semantic index if it is stale and Ollama is reachable."""
-    mb = _memory_dir(root)
+    mb = bank_dir(root)
     manifest = mb / INDEX_DIRNAME / MANIFEST_FILE
     if not _index_is_stale(manifest, mb):
         return False
@@ -155,7 +144,7 @@ def check_index_freshness(root: Path, errors: list[str]) -> bool:
 
 def run_auto_maintain(root: Path, *, check_only: bool = False) -> dict[str, object]:
     """Run the three SessionStart checks; return a serializable summary dict."""
-    mb = _memory_dir(root)
+    mb = bank_dir(root)
     if not mb.is_dir():
         return {
             "index_refreshed": False,
