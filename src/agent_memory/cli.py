@@ -30,7 +30,6 @@ from agent_memory.features.graph.command import (
     graph_stale,
     graph_supersede,
 )
-from agent_memory.shared.text import split_csv
 from agent_memory.features.maintain.auto import run_auto_maintain
 from agent_memory.features.maintain.command import handoff, maintain
 from agent_memory.features.search.command import search_memory
@@ -43,6 +42,7 @@ from agent_memory.features.semantic.command import (
     cmd_status,
 )
 from agent_memory.shared.paths import project_root
+from agent_memory.shared.text import split_csv
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
