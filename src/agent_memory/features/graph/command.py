@@ -106,19 +106,32 @@ def graph_query(root: Path, subject: str, pred: str | None = None) -> int:
 
 
 def graph_join(root: Path, start: str, pred1: str, pred2: str) -> int:
-    """Two-hop traversal: ``start -[pred1]-> X -[pred2]-> Y``."""
+    """Two-hop traversal: ``start -[pred1]-> X -[pred2]->_``.
+
+    Alias-aware on both hops: ``start`` matches a row's ``s`` or any of its
+    ``aliases`` (same rule as :func:`graph_query`); the intermediate objects are
+    then matched against the second-hop rows' subject-or-aliases too.
+    """
     rows = _graph_load(graph_path(root))
-    first = {r["o"] for r in rows if r.get("s") == start and r.get("p") == pred1}
+    first = {r["o"] for r in rows if r.get("p") == pred1 and _subj_matches(r, start)}
     if not first:
         print(f"no {pred1} edges from '{start}'")
         return 1
-    results = [r for r in rows if r.get("p") == pred2 and r.get("s") in first]
+    results = [r for r in rows if r.get("p") == pred2 and _obj_matches_subject(r, first)]
     if not results:
         print(f"no {pred2} edges from intermediate {sorted(first)}")
         return 1
     for r in results:
         print(f"{start} -[{pred1}]-> {r.get('s')} -[{pred2}]-> {r.get('o')}  [{r.get('id')}]")
     return 0
+
+
+def _obj_matches_subject(row: dict, candidates: set[str]) -> bool:
+    """True if the row's subject (or one of its aliases) is in ``candidates``."""
+    subj = row.get("s")
+    if subj in candidates:
+        return True
+    return any(a in candidates for a in (row.get("aliases") or []))
 
 
 def graph_show(root: Path) -> int:
@@ -142,10 +155,10 @@ def graph_supersede(root: Path, new_id: str, old_id: str) -> int:
     rows = _graph_load(path)
     target = next((r for r in rows if r.get("id") == new_id), None)
     if target is None:
-        print(f"error: fact id '{new_id}' not found", file=__import__("sys").stderr)
+        print(f"error: fact id '{new_id}' not found", file=sys.stderr)
         return 2
     if not any(r.get("id") == old_id for r in rows):
-        print(f"error: superseded id '{old_id}' not found", file=__import__("sys").stderr)
+        print(f"error: superseded id '{old_id}' not found", file=sys.stderr)
         return 2
     target["supersedes"] = sorted(set(target.get("supersedes") or []) | {old_id})
     _graph_rewrite(path, rows)

@@ -3,9 +3,10 @@ archives are exempt, and the _index uses the small topic-index budget."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from agent_memory.hooks.budget_guard import collect_warnings, format_warning
+from agent_memory.hooks.budget_guard import collect_warnings, format_warning, main
 from agent_memory.shared.config import TOPIC_INDEX_LIMIT
 
 
@@ -68,3 +69,32 @@ def test_archive_topic_files_are_exempt(tmp_path) -> None:
     topics.mkdir()
     (topics / "archive-2026-07-04.md").write_text("# huge\n" + "x\n" * 5000, encoding="utf-8")
     assert collect_warnings(bank) == []
+
+
+def test_main_silent_when_no_bank(tmp_path, monkeypatch) -> None:
+    """No .memory-bank → exit 0, no output (silent pass)."""
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert main() == 0
+
+
+def test_main_warns_over_budget_to_stderr(tmp_path, monkeypatch, capsys) -> None:
+    """A red MEMORY.md surfaces a warning via main(); exit stays 0 (advisory)."""
+    bank = _make_bank(tmp_path)
+    (bank / "MEMORY.md").write_text(
+        "# m\n" + "\n".join(f"line {i}" for i in range(200)) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    rc = main()
+    err = capsys.readouterr().err
+    assert rc == 0  # advisory: never blocks Stop
+    assert "RED" in err and "MEMORY.md" in err
+    # ensure the env was actually used by the real Stop-hook entry point
+    assert os.environ.get("CLAUDE_PROJECT_DIR") == str(tmp_path)
+
+
+def test_main_no_warning_within_budget(tmp_path, monkeypatch, capsys) -> None:
+    """A healthy bank emits nothing and exits 0."""
+    _make_bank(tmp_path)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert main() == 0
+    assert capsys.readouterr().err == ""

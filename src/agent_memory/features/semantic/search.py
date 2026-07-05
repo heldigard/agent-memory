@@ -29,10 +29,12 @@ def search(root: Path, query: str, k: int = DEFAULT_K, min_score: float = MIN_SC
 def _rank_dense(
     vectors: np.ndarray, manifest: list[dict], q: np.ndarray, k: int, min_score: float
 ) -> list[dict]:
-    """Top-k cosine-ranked records above ``min_score``."""
+    """Top-k cosine-ranked records above ``min_score``.
+
+    Assumes ``vectors`` is already L2-normalized (saved that way at index time);
+    only the query vector is normalized here."""
     qn = q / (np.linalg.norm(q) + 1e-9)
-    vn = vectors / (np.linalg.norm(vectors, axis=1, keepdims=True) + 1e-9)
-    scores = vn @ qn
+    scores = vectors @ qn
     out: list[dict] = []
     for i in np.argsort(-scores)[:k]:
         s = float(scores[i])

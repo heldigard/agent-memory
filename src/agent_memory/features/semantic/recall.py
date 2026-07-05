@@ -12,7 +12,6 @@ from its path.
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from pathlib import Path
 
 from agent_memory.features.semantic.hybrid import hybrid_search
@@ -20,16 +19,8 @@ from agent_memory.features.semantic.index import index_dir, load_index
 from agent_memory.features.semantic.search import keyword_fallback
 from agent_memory.shared.config import DEFAULT_K, EPISODIC_MARKERS, MIN_SCORE
 from agent_memory.shared.paths import bank_dir
+from agent_memory.shared.task_lines import is_active_task_line
 
-ACTIVE_STATUS_RE = re.compile(
-    r"\b(active|wip|live|in[- ]?progress|actual|activo|en curso)\b", re.IGNORECASE
-)
-HISTORICAL_TASK_RE = re.compile(
-    r"\b(history|hist[oó]rico|complete|completed|done|shipped|merged|closed|finished|"
-    r"archive|archived|old|viejo|terminad[oa]|completad[oa]|finalizad[oa])\b",
-    re.IGNORECASE,
-)
-TASK_DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
 NO_ACTIVE_TASK_RE = re.compile(
     r"\b(?:sin tarea .*activa|no active task|no current task|no hay tarea .*activa)\b",
     re.IGNORECASE,
@@ -38,7 +29,6 @@ COMPLETED_HEADING_RE = re.compile(
     r"^#{1,4}\s+.*\b(?:completed|complete|terminad[oa]|completad[oa]|finalizad[oa])\b",
     re.IGNORECASE | re.MULTILINE,
 )
-CHECKED_TASK_RE = re.compile(r"^\s*[-*]\s+\[[xX]\]\s+")
 UNCHECKED_TASK_RE = re.compile(r"^\s*[-*]\s+\[\s\]\s+")
 
 
@@ -50,42 +40,6 @@ def classify_memory(path: str) -> str:
     if any(marker in p for marker in EPISODIC_MARKERS):
         return "episodic"
     return "semantic"
-
-
-def is_active_task_line(
-    line: str, max_age_days: int = 14, no_active_task: bool = False, completed_doc: bool = False
-) -> bool:
-    """Heuristic: a line describing current (not historical, not checked) task work."""
-    if CHECKED_TASK_RE.match(line):
-        return False
-    clean = line.strip().lstrip("-* ").strip()
-    clean = re.sub(r"^\[\s\]\s+", "", clean).strip()
-    if not clean or clean.startswith(("#", ">", "<!--")):
-        return False
-    if no_active_task and not ACTIVE_STATUS_RE.search(clean):
-        return False
-    if completed_doc and not (UNCHECKED_TASK_RE.match(line) or ACTIVE_STATUS_RE.search(clean)):
-        return False
-    if HISTORICAL_TASK_RE.search(clean) and not ACTIVE_STATUS_RE.search(clean):
-        return False
-    return _task_date_ok(clean, max_age_days)
-
-
-def _task_date_ok(clean: str, max_age_days: int) -> bool:
-    """True if no date, recent date, or the line is explicitly active."""
-    match = TASK_DATE_RE.search(clean)
-    if not match or ACTIVE_STATUS_RE.search(clean):
-        return True
-    age = _task_age_days(match.group(1))
-    return age <= max_age_days if age is not None else True
-
-
-def _task_age_days(iso: str) -> int | None:
-    try:
-        d = datetime.fromisoformat(iso).date()
-    except ValueError:
-        return None
-    return (datetime.now().date() - d).days
 
 
 def extract_query_from_task(task_text: str, max_chars: int = 300) -> str:

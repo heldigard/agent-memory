@@ -110,6 +110,11 @@ INDEX_DIRNAME = ".index"
 VECTORS_FILE = "vectors.npz"
 MANIFEST_FILE = "manifest.json"
 EMBED_MODEL_FILE = "embed_model.txt"
+# Bump forces a full re-embed of every chunk. v1 = raw vectors; v2 = L2-normalized
+# at index time (so dense cosine skips per-query renormalization) + chunk-level
+# dedup via sha256 (only changed chunks within a touched file get re-embedded).
+INDEX_VERSION = "v2"
+VERSION_FILE = "version.txt"
 MAX_CHUNK_CHARS = 1200
 DEFAULT_K = 5
 MIN_SCORE = 0.20

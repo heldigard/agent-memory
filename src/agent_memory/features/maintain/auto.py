@@ -11,6 +11,7 @@ Absorbed from the ecosystem ``memory-auto-maintain.py`` standalone script.
 from __future__ import annotations
 
 import re
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -154,8 +155,6 @@ def check_index_freshness(root: Path, errors: list[str]) -> bool:
 
 def run_auto_maintain(root: Path, *, check_only: bool = False) -> dict[str, object]:
     """Run the three SessionStart checks; return a serializable summary dict."""
-    import sys
-
     mb = _memory_dir(root)
     if not mb.is_dir():
         return {

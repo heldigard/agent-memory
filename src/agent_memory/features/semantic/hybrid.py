@@ -7,6 +7,7 @@ is opt-in (slow), never on the SessionStart auto path.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -100,7 +101,6 @@ _STOPWORDS = frozenset(
         "fue",
         "fueron",
         "tiene",
-        "tiene",
     ]
 )
 
@@ -124,7 +124,8 @@ def bm25_scores(
     qterms = tokenize(query)
     if not qterms:
         return []
-    df = {t: sum(1 for d in docs if t in set(d)) for t in set(qterms)}
+    doc_sets = [set(d) for d in docs]
+    df = {t: sum(1 for ds in doc_sets if t in ds) for t in set(qterms)}
     if not any(df.values()):
         return []
     avgdl = sum(len(d) for d in docs) / len(docs)
@@ -160,19 +161,17 @@ def _bm25_doc_score(ctx: Bm25Ctx, tf: dict[str, int], denom: float) -> float:
 
 
 def _idf(df_t: int, n_docs: int) -> float:
-    return _log((n_docs - df_t + 0.5) / (df_t + 0.5))
-
-
-def _log(x: float) -> float:
-    import math
-
-    return math.log(1 + x)
+    return math.log(1 + (n_docs - df_t + 0.5) / (df_t + 0.5))
 
 
 def dense_scores(
     vectors: np.ndarray, query: str, limit: int = HYBRID_POOL
 ) -> list[tuple[int, float]]:
-    """Top-``limit`` ``(index, cosine)`` for the query. Empty if Ollama is down."""
+    """Top-``limit`` ``(index, cosine)`` for the query. Empty if Ollama is down.
+
+    Assumes ``vectors`` is already L2-normalized (``save_index`` normalizes on
+    write + a ``version=v2`` sidecar guarantees it); only the query is
+    normalized here."""
     if vectors.ndim != 2 or vectors.shape[0] == 0:
         return []
     q = ollama_embed(query)
@@ -180,8 +179,7 @@ def dense_scores(
         return []
     qn = np.asarray(q, dtype=np.float32)
     qn = qn / (np.linalg.norm(qn) + 1e-9)
-    vn = vectors / (np.linalg.norm(vectors, axis=1, keepdims=True) + 1e-9)
-    scores = vn @ qn
+    scores = vectors @ qn
     top = np.argsort(-scores)[:limit]
     return [(int(i), float(scores[i])) for i in top]
 

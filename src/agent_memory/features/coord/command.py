@@ -28,7 +28,10 @@ def _run(root: Path, extra: list[str]) -> int:
         return 1
     cmd = [bin_path, "--project", str(root), *extra]
     try:
-        result = subprocess.run(cmd, check=False)
+        result = subprocess.run(cmd, check=False, timeout=30, text=True)
+    except subprocess.TimeoutExpired:
+        print(f"'{COORD_BIN}' timed out after 30s — registry may be locked", file=sys.stderr)
+        return 1
     except OSError as exc:
         print(f"coord failed to launch: {exc}", file=sys.stderr)
         return 1

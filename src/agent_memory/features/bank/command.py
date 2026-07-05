@@ -7,6 +7,7 @@ entries/topics. Compaction lives in ``features/compact``.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import date, timedelta
 from pathlib import Path
@@ -91,8 +92,6 @@ def _resolve_threshold_days(override: int | None) -> int:
     """Resolve the staleness threshold: explicit override, else env, else 14."""
     if override is not None:
         return override
-    import os
-
     raw = os.environ.get("MEMORY_STALENESS_DAYS", "14")
     try:
         return int(raw)

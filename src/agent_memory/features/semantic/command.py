@@ -34,7 +34,10 @@ def cmd_index(root: Path, rebuild: bool) -> int:
         return 1
     print(
         f"Indexed {stats['chunks']} chunks from {stats['files_total']} files "
-        f"(reused {stats['files_reused']}, re-embedded {stats['files_reembedded']}, "
+        f"(chunks reused {stats.get('chunks_reused', 0)}, "
+        f"re-embedded {stats.get('chunks_reembedded', 0)}; "
+        f"files reused {stats['files_reused']}, "
+        f"re-embedded {stats['files_reembedded']}; "
         f"rebuild={stats['rebuild']}, model={stats['model']})"
     )
     if stats.get("model_changed"):
@@ -88,9 +91,12 @@ def cmd_status(root: Path) -> int:
 def cmd_clean(root: Path) -> int:
     stats = build_index(root, rebuild=False)
     print(
-        f"Cleaned -> {stats['chunks']} chunks, "
+        f"Cleaned -> {stats['chunks']} chunks "
+        f"(reused {stats.get('chunks_reused', 0)}, "
+        f"re-embedded {stats.get('chunks_reembedded', 0)}), "
         f"{stats['orphans_dropped']} orphans dropped, "
-        f"{stats['files_reused']} reused, {stats['files_reembedded']} re-embedded."
+        f"{stats['files_reused']} files reused, "
+        f"{stats['files_reembedded']} re-embedded."
     )
     return 0
 

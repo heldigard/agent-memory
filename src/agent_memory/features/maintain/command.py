@@ -9,7 +9,6 @@ Destructive edits stay manual.
 from __future__ import annotations
 
 import os
-import re
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -26,6 +25,7 @@ from agent_memory.shared.config import (
 from agent_memory.shared.ollama import generate as ollama_generate
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir
+from agent_memory.shared.task_lines import is_active_task_line
 
 
 @dataclass
@@ -266,7 +266,7 @@ def _active_task_lines(lines: list[str], limit: int) -> list[str]:
     """Lines describing the active task (date-bounded, not historical)."""
     out: list[str] = []
     for line in lines:
-        if _is_active_task_line(line):
+        if is_active_task_line(line):
             out.append(line)
         if len(out) >= limit:
             break
@@ -286,34 +286,3 @@ def _previous_context(lines: list[str], limit: int) -> list[str]:
         if line.strip().startswith("- 20") or line.strip().startswith("## Session")
     ]
     return markers[-limit:]
-
-
-_HISTORICAL_RE = re.compile(
-    r"\b(history|hist[oó]rico|complete|completed|done|shipped|merged|closed|finished|"
-    r"archive|archived|old|viejo|terminad[oa]|completad[oa]|finalizad[oa])\b",
-    re.IGNORECASE,
-)
-_ACTIVE_RE = re.compile(r"\b(active|wip|live|in[- ]?progress|activo|en curso)\b", re.IGNORECASE)
-_TASK_DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
-
-
-def _is_active_task_line(line: str, max_age_days: int = 14) -> bool:
-    """Heuristic: a line describing current (not historical) task work."""
-    clean = line.strip().lstrip("-* ").strip()
-    if not clean or clean.startswith(("#", ">", "<!--")):
-        return False
-    if _HISTORICAL_RE.search(clean) and not _ACTIVE_RE.search(clean):
-        return False
-    return _date_ok(clean, max_age_days)
-
-
-def _date_ok(clean: str, max_age_days: int) -> bool:
-    """True if no date, or the date is recent, or the line is explicitly active."""
-    match = _TASK_DATE_RE.search(clean)
-    if not match or _ACTIVE_RE.search(clean):
-        return True
-    try:
-        age = (date.today() - date.fromisoformat(match.group(1))).days
-    except ValueError:
-        return True
-    return age <= max_age_days
