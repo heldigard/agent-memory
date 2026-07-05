@@ -167,7 +167,8 @@ def _idf(df_t: int, n_docs: int) -> float:
 def dense_scores(
     vectors: np.ndarray, query: str, limit: int = HYBRID_POOL
 ) -> list[tuple[int, float]]:
-    """Top-``limit`` ``(index, cosine)`` for the query. Empty if Ollama is down.
+    """Top-``limit`` ``(index, cosine)`` for the query. Empty when the index is empty,
+    Ollama is unreachable, or the query embedding request fails.
 
     Assumes ``vectors`` is already L2-normalized (``save_index`` normalizes on
     write + a ``version=v2`` sidecar guarantees it); only the query is

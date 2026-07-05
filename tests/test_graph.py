@@ -9,8 +9,8 @@ from agent_memory.features.graph.command import (
     graph_show,
     graph_stale,
     graph_supersede,
-    split_csv,
 )
+from agent_memory.shared.text import split_csv
 
 
 def test_split_csv_parses_and_trims() -> None:

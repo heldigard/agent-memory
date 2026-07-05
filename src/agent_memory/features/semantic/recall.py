@@ -29,7 +29,6 @@ COMPLETED_HEADING_RE = re.compile(
     r"^#{1,4}\s+.*\b(?:completed|complete|terminad[oa]|completad[oa]|finalizad[oa])\b",
     re.IGNORECASE | re.MULTILINE,
 )
-UNCHECKED_TASK_RE = re.compile(r"^\s*[-*]\s+\[\s\]\s+")
 
 
 def classify_memory(path: str) -> str:

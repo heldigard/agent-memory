@@ -28,16 +28,20 @@ from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
 from agent_memory.shared.text import line_count
 
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
+DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 
 
 def _parse_entry_date(line: str) -> datetime | None:
-    """First YYYY-MM-DD at line start as UTC datetime, or None."""
-    m = DATE_RE.match(line.strip())
+    """First YYYY-MM-DD anywhere in ``line`` as UTC datetime, or None.
+
+    Not anchored: real entries are ``- YYYY-MM-DD | status:...`` (list-item
+    form). Mirrors the un-anchored regex used by ``bank/command._report_staleness``
+    so both staleness paths agree on which lines are stale."""
+    m = DATE_RE.search(line)
     if not m:
         return None
     try:
-        return datetime.strptime(m.group(), "%Y-%m-%d").replace(tzinfo=UTC)
+        return datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError:
         return None
 

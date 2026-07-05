@@ -15,7 +15,7 @@ from pathlib import Path
 
 from agent_memory.shared.config import GRAPH_FILE, GRAPH_PREDICATES
 from agent_memory.shared.paths import bank_dir
-from agent_memory.shared.text import ensure_safe_text, split_csv  # noqa: F401
+from agent_memory.shared.text import ensure_safe_text
 
 
 def graph_path(root: Path) -> Path:
