@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Test/quality caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Editor/OS
+.tags
+.DS_Store
+.idea/
+.vscode/
+
+# Migration reference (sources copied from ecosystem, not part of project)
+.migration/
+
+# Local memory bank index (regenerable binary embeddings)
+.memory-bank/.index/

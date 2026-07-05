@@ -1,0 +1,162 @@
+"""Session-start recall and active re-query.
+
+Two modes:
+  * passive (default): read ``currentTask.md`` as the query (SessionStart).
+  * active (``query=...``): re-search with a refined query mid-task.
+
+Score-threshold self-stop prunes hits below ``min_score`` (no noise-padding).
+Each hit is tagged with a memory type (episodic/semantic/relational) derived
+from its path.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import datetime
+from pathlib import Path
+
+from agent_memory.features.semantic.hybrid import hybrid_search
+from agent_memory.features.semantic.index import index_dir, load_index
+from agent_memory.features.semantic.search import keyword_fallback
+from agent_memory.shared.config import DEFAULT_K, EPISODIC_MARKERS, MIN_SCORE
+from agent_memory.shared.paths import bank_dir
+
+ACTIVE_STATUS_RE = re.compile(
+    r"\b(active|wip|live|in[- ]?progress|actual|activo|en curso)\b", re.IGNORECASE
+)
+HISTORICAL_TASK_RE = re.compile(
+    r"\b(history|hist[oó]rico|complete|completed|done|shipped|merged|closed|finished|"
+    r"archive|archived|old|viejo|terminad[oa]|completad[oa]|finalizad[oa])\b",
+    re.IGNORECASE,
+)
+TASK_DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
+NO_ACTIVE_TASK_RE = re.compile(
+    r"\b(?:sin tarea .*activa|no active task|no current task|no hay tarea .*activa)\b",
+    re.IGNORECASE,
+)
+COMPLETED_HEADING_RE = re.compile(
+    r"^#{1,4}\s+.*\b(?:completed|complete|terminad[oa]|completad[oa]|finalizad[oa])\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+CHECKED_TASK_RE = re.compile(r"^\s*[-*]\s+\[[xX]\]\s+")
+UNCHECKED_TASK_RE = re.compile(r"^\s*[-*]\s+\[\s\]\s+")
+
+
+def classify_memory(path: str) -> str:
+    """Path-derived memory type: episodic / semantic / relational."""
+    p = (path or "").lower()
+    if "decisions.graph" in p:
+        return "relational"
+    if any(marker in p for marker in EPISODIC_MARKERS):
+        return "episodic"
+    return "semantic"
+
+
+def is_active_task_line(
+    line: str, max_age_days: int = 14, no_active_task: bool = False, completed_doc: bool = False
+) -> bool:
+    """Heuristic: a line describing current (not historical, not checked) task work."""
+    if CHECKED_TASK_RE.match(line):
+        return False
+    clean = line.strip().lstrip("-* ").strip()
+    clean = re.sub(r"^\[\s\]\s+", "", clean).strip()
+    if not clean or clean.startswith(("#", ">", "<!--")):
+        return False
+    if no_active_task and not ACTIVE_STATUS_RE.search(clean):
+        return False
+    if completed_doc and not (UNCHECKED_TASK_RE.match(line) or ACTIVE_STATUS_RE.search(clean)):
+        return False
+    if HISTORICAL_TASK_RE.search(clean) and not ACTIVE_STATUS_RE.search(clean):
+        return False
+    return _task_date_ok(clean, max_age_days)
+
+
+def _task_date_ok(clean: str, max_age_days: int) -> bool:
+    """True if no date, recent date, or the line is explicitly active."""
+    match = TASK_DATE_RE.search(clean)
+    if not match or ACTIVE_STATUS_RE.search(clean):
+        return True
+    age = _task_age_days(match.group(1))
+    return age <= max_age_days if age is not None else True
+
+
+def _task_age_days(iso: str) -> int | None:
+    try:
+        d = datetime.fromisoformat(iso).date()
+    except ValueError:
+        return None
+    return (datetime.now().date() - d).days
+
+
+def extract_query_from_task(task_text: str, max_chars: int = 300) -> str:
+    """Turn a ``currentTask.md`` body into a search query."""
+    no_active_task = bool(NO_ACTIVE_TASK_RE.search(task_text))
+    completed_doc = bool(COMPLETED_HEADING_RE.search(task_text))
+    lines: list[str] = []
+    for raw in task_text.splitlines():
+        s = _clean_task_line(raw, no_active_task, completed_doc)
+        if s:
+            lines.append(s)
+        if sum(len(t) for t in lines) >= max_chars:
+            break
+    return " ".join(lines)[:max_chars].strip()
+
+
+def _clean_task_line(raw: str, no_active_task: bool, completed_doc: bool) -> str:
+    """Return the cleaned text of an active task line, or '' to skip."""
+    s = raw.strip()
+    if not is_active_task_line(s, no_active_task=no_active_task, completed_doc=completed_doc):
+        return ""
+    s = re.sub(r"^\s*[-*]\s+\[\s\]\s+", "", s).strip()
+    s = re.sub(r"^\*{1,2}[^*:*]{1,40}\*{1,2}:\s*", "", s)
+    s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)
+    return s
+
+
+def recall(
+    root: Path, k: int = DEFAULT_K, query: str | None = None, min_score: float = MIN_SCORE
+) -> dict:
+    """Retrieve task-relevant memory hits (passive from currentTask or active re-query)."""
+    memory = bank_dir(root)
+    q, source = _resolve_query(memory, query)
+    if q is None:
+        return {"error": source}
+    _, manifest = load_index(index_dir(root))
+    if not manifest:
+        return {"error": "no semantic index — run `semindex` first", "query": q}
+    hits, used_fallback = _gather_hits(root, q, k)
+    hits = [h for h in hits if h.get("file") != "currentTask.md"]
+    if not used_fallback:
+        hits = [h for h in hits if h.get("score") is None or h.get("score", 0.0) >= min_score]
+    for h in hits:
+        h["type"] = classify_memory(h.get("file", ""))
+    return {
+        "query": q,
+        "source": "query" if query else "currentTask.md",
+        "hits": hits[:k],
+        "fallback": used_fallback,
+        "min_score": min_score if not used_fallback else None,
+    }
+
+
+def _resolve_query(memory: Path, query: str | None) -> tuple[str | None, str]:
+    """Return ``(query, error_or_source)``. On error, query is None."""
+    if query:
+        q = query.strip()
+        return (q, "") if q else (None, "empty --query passed to active recall")
+    task_path = memory / "currentTask.md"
+    if not task_path.exists():
+        return None, f"no currentTask.md at {task_path} (pass query= for active re-query)"
+    q = extract_query_from_task(task_path.read_text(encoding="utf-8", errors="replace"))
+    if not q:
+        return None, "currentTask.md has no usable task text"
+    return q, ""
+
+
+def _gather_hits(root: Path, q: str, k: int) -> tuple[list[dict], bool]:
+    """Run hybrid search, fall back to keyword if empty. Returns (hits, used_fallback)."""
+    vectors, manifest = load_index(index_dir(root))
+    hits = hybrid_search(vectors, manifest, q, k=k + 5)
+    if hits:
+        return hits, False
+    return keyword_fallback(root, q, k=k + 5), True

@@ -1,0 +1,137 @@
+"""Central configuration for agent-memory.
+
+Single source of truth for file budgets, aliases, status taxonomy, window
+hours, graph predicates, and semantic-retrieval constants. Features import
+from here instead of duplicating literals (DRY).
+"""
+
+from __future__ import annotations
+
+import re
+
+# ---------------------------------------------------------------------------
+# Memory-bank file table
+# ---------------------------------------------------------------------------
+# Ceilings MUST stay in sync with the documented budgets in the Memory System
+# v5 rule. Each entry: (human description, line budget).
+FILES: dict[str, tuple[str, int]] = {
+    "MEMORY.md": ("Compact project index", 80),
+    "CONTEXT.md": ("Current state", 150),
+    "REFERENCE.md": ("Stable facts", 200),
+    "agent-sessions.md": ("Active agent registry", 100),
+    "currentTask.md": ("Active task", 80),
+    "activeContext.md": ("Session handoff", 200),
+    "progress.md": ("Completed work", 300),
+    "systemPatterns.md": ("Decisions and patterns", 500),
+    "dead-ends.md": ("Failed approaches", 300),
+}
+
+TOPICS_DIR = "topics"
+TOPIC_SOFT_LIMIT = 800
+
+READ_ORDER: list[str] = [
+    "MEMORY.md",
+    "CONTEXT.md",
+    "REFERENCE.md",
+    "agent-sessions.md",
+    f"{TOPICS_DIR}/_index.md",
+    "currentTask.md",
+    "activeContext.md",
+    "progress.md",
+    "systemPatterns.md",
+    "dead-ends.md",
+]
+
+FILE_ALIASES: dict[str, str] = {
+    "memory": "MEMORY.md",
+    "context": "CONTEXT.md",
+    "reference": "REFERENCE.md",
+    "agentsessions": "agent-sessions.md",
+    "agent-sessions": "agent-sessions.md",
+    "task": "currentTask.md",
+    "currenttask": "currentTask.md",
+    "active": "activeContext.md",
+    "activecontext": "activeContext.md",
+    "progress": "progress.md",
+    "patterns": "systemPatterns.md",
+    "systempatterns": "systemPatterns.md",
+    "deadends": "dead-ends.md",
+    "dead-ends": "dead-ends.md",
+}
+
+SECRET_RE = re.compile(
+    r"(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|secret|"
+    r"private[_-]?key|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]{20,})",
+    re.IGNORECASE,
+)
+
+# ---------------------------------------------------------------------------
+# Entry timestamp + status taxonomy (guards against the "prompt improver"
+# incident: an agent compacted memory mid-deploy and lost completed work).
+# ---------------------------------------------------------------------------
+# Valid status values for an entry's `| status:X` segment.
+VALID_STATUS: frozenset[str] = frozenset({"active", "wip", "blocked", "live", "completed"})
+
+# Status values that NEVER get archived (work in flight or permanent reference).
+NEVER_ARCHIVED: frozenset[str] = frozenset({"active", "wip", "blocked", "live"})
+
+# Defaults for the archive / injection freshness windows (hours). Overridable
+# via env so a long deploy or a stricter injection policy can tune without
+# code changes.
+DEFAULT_ARCHIVE_WINDOW_HOURS = 6.0
+DEFAULT_INJECTION_WINDOW_HOURS = 12.0
+
+# ---------------------------------------------------------------------------
+# Context-graph (decisions.graph.jsonl)
+# ---------------------------------------------------------------------------
+GRAPH_FILE = "decisions.graph.jsonl"
+GRAPH_PREDICATES: frozenset[str] = frozenset(
+    {
+        "DECIDED",
+        "DEPENDS_ON",
+        "ASSIGNED_TO",
+        "OWNS",
+        "BLOCKED_BY",
+        "DELEGATED_TO",
+        "SUPERSEDES",
+        "USES",
+        "REPLACES",
+        "SYNCED_FROM",
+        "COMPLEMENTS",
+        "REJECTED_AS",
+    }
+)
+
+# ---------------------------------------------------------------------------
+# Semantic retrieval (BM25 + dense, fused via Reciprocal Rank Fusion)
+# ---------------------------------------------------------------------------
+INDEX_DIRNAME = ".index"
+VECTORS_FILE = "vectors.npz"
+MANIFEST_FILE = "manifest.json"
+EMBED_MODEL_FILE = "embed_model.txt"
+MAX_CHUNK_CHARS = 1200
+DEFAULT_K = 5
+MIN_SCORE = 0.20
+
+RRF_K = 60
+BM25_K1 = 1.5
+BM25_B = 0.75
+HYBRID_POOL = 20
+RERANK_TOPN = 12
+
+# Maintenance LLM model (overrides via env, same var as codeq summary layer).
+MAINT_MODEL_DEFAULT = "batiai/gemma4-e4b:q4"
+MAINT_AUDIT_LINE_CAP = 150
+MAINT_AUDIT_CHAR_BUDGET = 6000
+
+# Memory-type heuristic markers (episodic vs semantic vs relational).
+EPISODIC_MARKERS: tuple[str, ...] = (
+    "progress",
+    "session-handoffs",
+    "agent-sessions",
+    "dead-ends",
+    "currenttask",
+    "activecontext",
+    "archive",
+    "foreign-sessions",
+)

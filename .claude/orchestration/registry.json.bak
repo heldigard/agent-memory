@@ -1,0 +1,314 @@
+{
+  "agents": {
+    "main": {
+      "last_seen": 1783213896.3119905,
+      "leased_paths": [
+        "/home/eldi/agent-memory/pyproject.toml",
+        "/home/eldi/agent-memory/LICENSE",
+        "/home/eldi/agent-memory/.gitignore",
+        "/home/eldi/agent-memory/src/agent_memory/__init__.py",
+        "/home/eldi/agent-memory/src/agent_memory/__main__.py",
+        "/home/eldi/agent-memory/src/agent_memory/shared/__init__.py",
+        "/home/eldi/agent-memory/src/agent_memory/shared/config.py",
+        "/home/eldi/agent-memory/src/agent_memory/shared/paths.py",
+        "/home/eldi/agent-memory/src/agent_memory/shared/text.py",
+        "/home/eldi/agent-memory/src/agent_memory/shared/ollama.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/entries/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/bank/templates.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/bank/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/compact/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/search/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/graph/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/coord/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/maintain/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/maintain/auto.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/chunking.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/index.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/search.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/hybrid.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/recall.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/status.py",
+        "/home/eldi/agent-memory/src/agent_memory/features/semantic/command.py",
+        "/home/eldi/agent-memory/src/agent_memory/cli.py",
+        "/home/eldi/agent-memory/README.md",
+        "/home/eldi/agent-memory/tests/test_entries.py",
+        "/home/eldi/agent-memory/tests/test_graph.py",
+        "/home/eldi/agent-memory/tests/test_chunking.py",
+        "/home/eldi/agent-memory/tests/test_hybrid.py",
+        "/home/eldi/agent-memory/tests/test_smoke.py"
+      ],
+      "model": "unknown",
+      "started_at": 1783211534.9360154,
+      "status": "active",
+      "task": ""
+    }
+  },
+  "leases": {
+    "01835334-2f6": {
+      "acquired_at": 1783213765.1430564,
+      "expires_at": 1783214365.1430564,
+      "holder": "main",
+      "lease_id": "01835334-2f6",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/tests/test_smoke.py"
+    },
+    "05596dba-1ae": {
+      "acquired_at": 1783212528.6445627,
+      "expires_at": 1783213159.0988445,
+      "holder": "main",
+      "lease_id": "05596dba-1ae",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/search/command.py"
+    },
+    "2e43649f-4c1": {
+      "acquired_at": 1783213218.4762845,
+      "expires_at": 1783213998.32529,
+      "holder": "main",
+      "lease_id": "2e43649f-4c1",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/hybrid.py"
+    },
+    "2fc0259d-139": {
+      "acquired_at": 1783212876.0598545,
+      "expires_at": 1783213567.7451215,
+      "holder": "main",
+      "lease_id": "2fc0259d-139",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/chunking.py"
+    },
+    "316efce7-462": {
+      "acquired_at": 1783212041.4245906,
+      "expires_at": 1783212641.4245906,
+      "holder": "main",
+      "lease_id": "316efce7-462",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/bank/templates.py"
+    },
+    "3f4f0c72-c06": {
+      "acquired_at": 1783213029.7575984,
+      "expires_at": 1783213761.8694868,
+      "holder": "main",
+      "lease_id": "3f4f0c72-c06",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/index.py"
+    },
+    "51f6dd22-f65": {
+      "acquired_at": 1783211534.9360154,
+      "expires_at": 1783214496.3119905,
+      "holder": "main",
+      "lease_id": "51f6dd22-f65",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/pyproject.toml"
+    },
+    "5bcaf42b-a31": {
+      "acquired_at": 1783213748.0919752,
+      "expires_at": 1783214389.8997507,
+      "holder": "main",
+      "lease_id": "5bcaf42b-a31",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/tests/test_chunking.py"
+    },
+    "70d99d38-e89": {
+      "acquired_at": 1783211714.5529618,
+      "expires_at": 1783212314.5529618,
+      "holder": "main",
+      "lease_id": "70d99d38-e89",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/shared/paths.py"
+    },
+    "899af6c4-d46": {
+      "acquired_at": 1783213754.9603243,
+      "expires_at": 1783214354.9603243,
+      "holder": "main",
+      "lease_id": "899af6c4-d46",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/tests/test_hybrid.py"
+    },
+    "8df15706-47f": {
+      "acquired_at": 1783212413.1225789,
+      "expires_at": 1783213089.5949855,
+      "holder": "main",
+      "lease_id": "8df15706-47f",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/compact/command.py"
+    },
+    "92d6db27-f9f": {
+      "acquired_at": 1783211539.7112703,
+      "expires_at": 1783212139.7112703,
+      "holder": "main",
+      "lease_id": "92d6db27-f9f",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/.gitignore"
+    },
+    "94d90886-e07": {
+      "acquired_at": 1783212707.4361575,
+      "expires_at": 1783214494.5959742,
+      "holder": "main",
+      "lease_id": "94d90886-e07",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/maintain/command.py"
+    },
+    "96bc2369-b6b": {
+      "acquired_at": 1783213731.0362272,
+      "expires_at": 1783214331.0362272,
+      "holder": "main",
+      "lease_id": "96bc2369-b6b",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/tests/test_graph.py"
+    },
+    "9ecc7578-401": {
+      "acquired_at": 1783211537.3956583,
+      "expires_at": 1783212137.3956583,
+      "holder": "main",
+      "lease_id": "9ecc7578-401",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/LICENSE"
+    },
+    "a4a573d0-58f": {
+      "acquired_at": 1783213553.3572,
+      "expires_at": 1783214456.5506546,
+      "holder": "main",
+      "lease_id": "a4a573d0-58f",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/cli.py"
+    },
+    "b47a6b06-eda": {
+      "acquired_at": 1783212822.3867266,
+      "expires_at": 1783214447.655963,
+      "holder": "main",
+      "lease_id": "b47a6b06-eda",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/maintain/auto.py"
+    },
+    "b5076db6-2a3": {
+      "acquired_at": 1783211950.6404583,
+      "expires_at": 1783212618.9477763,
+      "holder": "main",
+      "lease_id": "b5076db6-2a3",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/entries/command.py"
+    },
+    "b619cd9c-919": {
+      "acquired_at": 1783213490.0373778,
+      "expires_at": 1783214110.6562347,
+      "holder": "main",
+      "lease_id": "b619cd9c-919",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/command.py"
+    },
+    "b8f4fdfe-479": {
+      "acquired_at": 1783211704.6986926,
+      "expires_at": 1783212304.6986926,
+      "holder": "main",
+      "lease_id": "b8f4fdfe-479",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/shared/config.py"
+    },
+    "be5cda3a-fe7": {
+      "acquired_at": 1783213189.6705437,
+      "expires_at": 1783213861.6909435,
+      "holder": "main",
+      "lease_id": "be5cda3a-fe7",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/search.py"
+    },
+    "bf5c1a59-3b0": {
+      "acquired_at": 1783212601.0647585,
+      "expires_at": 1783213201.0647585,
+      "holder": "main",
+      "lease_id": "bf5c1a59-3b0",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/coord/command.py"
+    },
+    "d372199d-750": {
+      "acquired_at": 1783213455.6246808,
+      "expires_at": 1783214055.6246808,
+      "holder": "main",
+      "lease_id": "d372199d-750",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/recall.py"
+    },
+    "d6f05347-da6": {
+      "acquired_at": 1783213585.077407,
+      "expires_at": 1783214185.077407,
+      "holder": "main",
+      "lease_id": "d6f05347-da6",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/README.md"
+    },
+    "d9d4f855-1a6": {
+      "acquired_at": 1783213720.5502095,
+      "expires_at": 1783214320.5502095,
+      "holder": "main",
+      "lease_id": "d9d4f855-1a6",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/tests/test_entries.py"
+    },
+    "e159ad4e-091": {
+      "acquired_at": 1783211676.0623639,
+      "expires_at": 1783212276.0623639,
+      "holder": "main",
+      "lease_id": "e159ad4e-091",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/__main__.py"
+    },
+    "eb8e8982-ebe": {
+      "acquired_at": 1783212596.0831742,
+      "expires_at": 1783213222.302868,
+      "holder": "main",
+      "lease_id": "eb8e8982-ebe",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/graph/command.py"
+    },
+    "ebf7d46e-2c1": {
+      "acquired_at": 1783211750.206035,
+      "expires_at": 1783212482.0478907,
+      "holder": "main",
+      "lease_id": "ebf7d46e-2c1",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/shared/ollama.py"
+    },
+    "f84c8000-97a": {
+      "acquired_at": 1783213458.0969856,
+      "expires_at": 1783214447.981252,
+      "holder": "main",
+      "lease_id": "f84c8000-97a",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/semantic/status.py"
+    },
+    "f9f3a3b3-092": {
+      "acquired_at": 1783211676.3302147,
+      "expires_at": 1783212276.3302147,
+      "holder": "main",
+      "lease_id": "f9f3a3b3-092",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/shared/__init__.py"
+    },
+    "fcbd6d71-fa8": {
+      "acquired_at": 1783212091.6903286,
+      "expires_at": 1783212974.5693717,
+      "holder": "main",
+      "lease_id": "fcbd6d71-fa8",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/features/bank/command.py"
+    },
+    "fd556bb2-7ab": {
+      "acquired_at": 1783211718.2636583,
+      "expires_at": 1783212318.2636583,
+      "holder": "main",
+      "lease_id": "fd556bb2-7ab",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/shared/text.py"
+    },
+    "ff281b5b-a7d": {
+      "acquired_at": 1783211676.0823452,
+      "expires_at": 1783212276.0823452,
+      "holder": "main",
+      "lease_id": "ff281b5b-a7d",
+      "mode": "exclusive",
+      "path": "/home/eldi/agent-memory/src/agent_memory/__init__.py"
+    }
+  },
+  "started_at": 1783211534.9360142,
+  "version": 2
+}
