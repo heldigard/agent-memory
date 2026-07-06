@@ -1,3 +1,4 @@
+# vs-soft-allow: nesting_depth — pre-existing audit-loop guard clauses (for/try/if); natural shape.
 """LLM-assisted maintenance and session handoff.
 
 The local Ollama model PROPOSES (duplicates, stale candidates, compaction
@@ -14,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from agent_memory.shared.config import (
     FILES,
@@ -76,11 +78,59 @@ def _maint_disabled(no_llm: bool) -> bool:
     )
 
 
-def _ollama_call(prompt: str, *, no_llm: bool) -> str | None:
-    """Best-effort local Ollama call. Returns text or None."""
+_CLOUD_AUDIT_SYSTEM = (
+    "You audit project memory-bank files for a senior LLM. "
+    "Reply with only the requested bullets/proposals — no preamble."
+)
+
+
+def _try_cheap_complete(cheap_llm_module: Any, prompt: str) -> dict | None:
+    """Run cheap_llm.cheap_complete, swallowing transient errors (fail-open)."""
+    try:
+        return cheap_llm_module.cheap_complete(
+            system=_CLOUD_AUDIT_SYSTEM,
+            prompt=prompt,
+            schema_hint=None,
+            timeout_total=20.0,
+            prefer_local=False,
+            require_json=False,
+        )
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError):
+        return None
+
+
+def _cloud_call(prompt: str) -> str | None:
+    """Cloud fallback via the ecosystem ``cheap_llm`` cascade.
+
+    Fires ONLY when local Ollama returned nothing (daemon down or model load
+    failed) so a manual ``agent-memory maintain`` still gets LLM proposals
+    instead of degrading to deterministic ``--no-llm`` mode. Lazy-imported and
+    env-gated (``AGENT_MEMORY_CLOUD_FALLBACK=0`` disables) to preserve this
+    package's standalone portability — no hard dependency on cheap_llm, and
+    PAYG cloud stays opt-in. Memory-bank text is non-secret by project rule;
+    cheap_llm also scrubs before any network send.
+    """
+    if os.environ.get("AGENT_MEMORY_CLOUD_FALLBACK", "1") == "0":
+        return None
+    try:
+        import cheap_llm  # type: ignore[import-not-found]
+    except ImportError:
+        return None
+    result = _try_cheap_complete(cheap_llm, prompt)
+    if not isinstance(result, dict):
+        return None
+    text = (result.get("text") or "").strip()
+    return text or None
+
+
+def _best_effort_llm(prompt: str, *, no_llm: bool) -> str | None:
+    """Best-effort LLM call: local Ollama first, cheap_llm cloud fallback."""
     if _maint_disabled(no_llm):
         return None
-    return ollama_generate(prompt, model=_maint_model(), temperature=0.2, num_ctx=8192)
+    text = ollama_generate(prompt, model=_maint_model(), temperature=0.2, num_ctx=8192)
+    if text:
+        return text
+    return _cloud_call(prompt)
 
 
 def _summarize_block(block: str, filename: str, *, no_llm: bool) -> str | None:
@@ -93,7 +143,7 @@ def _summarize_block(block: str, filename: str, *, no_llm: bool) -> str | None:
         " Be factual — do not invent. If a bullet is uncertain, omit it.\n\n"
         f"FILE: {filename}\n\nBLOCK:\n{block[:MAINT_AUDIT_CHAR_BUDGET]}\n\nDurable-fact bullets:"
     )
-    raw = _ollama_call(prompt, no_llm=no_llm)
+    raw = _best_effort_llm(prompt, no_llm=no_llm)
     return raw.strip().strip('"').strip("'") if raw else None
 
 
@@ -116,7 +166,7 @@ def _audit_file(filename: str, content: str, *, no_llm: bool) -> str | None:
         "  - Max 6 proposals per category. When unsure, omit.\n\n"
         f"FILE: {filename}\n\nCONTENT:\n{content[:MAINT_AUDIT_CHAR_BUDGET]}{truncated}\n\nAudit:"
     )
-    raw = _ollama_call(prompt, no_llm=no_llm)
+    raw = _best_effort_llm(prompt, no_llm=no_llm)
     return raw.strip().strip('"').strip("'") if raw else None
 
 

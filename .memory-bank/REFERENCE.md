@@ -4,7 +4,7 @@
 - **Language:** Python ≥ 3.11 (target py311; mypy checked at 3.13)
 - **Build:** hatchling (`pyproject.toml`); pkg name `agent-memory-cli`, script `agent-memory`
 - **Hard dep:** `numpy>=1.26` (vectors + BM25 math)
-- **Optional (LLM):** local Ollama — `embeddinggemma` (768-d embeds), `qwen3.5:4b` (rerank/maintain). Degrades gracefully.
+- **Optional (LLM):** local Ollama — `embeddinggemma` (768-d embeds), `SetneufPT/Qwopus3.5-4B-Coder-MTP` (maintain/audit; shares `CODEQ_SUMMARY_MODEL` with codeq, round-5 winner), `qwen3.5:4b` (rerank). Degrades gracefully; `maintain` also falls back to the ecosystem `cheap_llm` cloud cascade when Ollama is down (env `AGENT_MEMORY_CLOUD_FALLBACK`, default on).
 - **Test/dev:** pytest, pytest-cov, ruff (rules `E F I UP B SIM RUF`, line=100), mypy
 
 ## Commands
@@ -22,7 +22,8 @@
 |---|---|---|
 | `AGENT_MEMORY_OLLAMA_URL` | `http://localhost:11434` | Daemon URL |
 | `AGENT_MEMORY_EMBED_WORKERS` | `4` | Parallel embed threads (`1`=serial) |
-| `CODEQ_SUMMARY_MODEL` | `batiai/gemma4-e4b:q4` | Maintain/audit model |
+| `CODEQ_SUMMARY_MODEL` | `SetneufPT/Qwopus3.5-4B-Coder-MTP_Q4_64k_8GB-GPU:latest` | Maintain/audit model (tracks codeq round-5 winner) |
+| `AGENT_MEMORY_CLOUD_FALLBACK` | `1` | When Ollama returns nothing, `maintain` falls back to the cheap_llm cloud cascade. `0` = local-only (degrades to deterministic). |
 | `CODEQ_NO_LLM` / `PROJECT_MEMORY_NO_LLM` | unset | Skip all Ollama (deterministic only) |
 | `MEMORY_ACTIVE_WINDOW_HOURS` | `6.0` | Completed-entry archival freshness |
 | `MEMORY_STALENESS_DAYS` | `14` | Staleness threshold |
