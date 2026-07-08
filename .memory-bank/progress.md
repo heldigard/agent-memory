@@ -12,3 +12,4 @@
 - 2026-07-08T00:34:32Z | status:completed | Coordination hygiene: read_memory filters stale .memory-bank/agent-sessions.md rows from startup injection; coord --cleanup also invokes cli-orchestration broker cleanup when available. Verified full pytest, ruff, compileall, mypy.
 - 2026-07-08T00:36:00Z | status:completed | Follow-up hygiene: default memory reads also hide operational topic-index entries (agent-sessions, foreign-sessions, session-handoffs) while preserving explicit topic reads.
 - 2026-07-08T00:49:42Z | status:completed | Second review: local Ollama output stripping handles visible reasoning wrappers; `coord --cleanup` now falls back to local `agent-sessions.md` filtering when `agent-coordination-status` is absent.
+- 2026-07-08T01:02:55Z | status:completed | Doc hygiene: README CODEQ_SUMMARY_MODEL default aligned with runtime SetneufPT/Qwopus3.5 shared default.
