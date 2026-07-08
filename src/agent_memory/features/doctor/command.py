@@ -224,7 +224,7 @@ def _check_index(root: Path, memory: Path) -> list[Finding]:
                 severity="info",
                 check="index",
                 detail="ollama daemon not reachable — semantic ops will degrade to keyword",
-                hint="start ollama (with `embeddinggemma` + `qwen3.5:4b`) to re-enable",
+                hint="start ollama (with `embeddinggemma` + `cryptidbleh/gemma4-claude-opus-4.6:latest`) to re-enable",
             )
         )
     return out
