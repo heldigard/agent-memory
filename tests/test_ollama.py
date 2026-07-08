@@ -86,6 +86,18 @@ def test_generate_strips_think_tags(monkeypatch, tmp_path: Path) -> None:
     assert ollama.generate("p", model="m", temperature=0.0) == "real answer"
 
 
+def test_strip_think_handles_visible_reasoning_wrappers() -> None:
+    cases = [
+        ("<reflection>internal</reflection>real answer", "real answer"),
+        ("<output>real answer</output>", "real answer"),
+        ("Thinking process: inspect memory\nFinal answer: real answer", "real answer"),
+        ("<|channel|>thought<|channel|>real answer", "real answer"),
+        ("<reasoning>unterminated", ""),
+    ]
+    for raw, expected in cases:
+        assert ollama._strip_think(raw) == expected
+
+
 def test_embed_retries_on_failure_then_halves(monkeypatch) -> None:
     """A long text whose full embed fails yields a half-text embed retry."""
     calls: list[str] = []

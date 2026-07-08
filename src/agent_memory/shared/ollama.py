@@ -39,11 +39,18 @@ CACHE_PRUNE_EVERY = 50
 _store_state: dict[str, int] = {"count": 0}
 OLLAMA_CACHE_DIR = Path.home() / ".claude" / "state" / "ollama-cache"
 
-_THINK_TAGS = (
-    r"<think\b[^>]*>.*?</think\s*>",
-    r"<reasoning\b[^>]*>.*?</reasoning\s*>",
-    r"<\|think\|>.*?<\|/think\|>",
-    r"<\|channel>.*?<channel\|>",
+_THINK_TAGS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"<think\b[^>]*>.*?(</think\s*>|$)", re.S | re.I),
+    re.compile(r"<reasoning\b[^>]*>.*?(</reasoning\s*>|$)", re.S | re.I),
+    re.compile(r"<reflection\b[^>]*>.*?(</reflection\s*>|$)", re.S | re.I),
+    re.compile(r"<\|think\|>.*?<\|/think\|>", re.S | re.I),
+    re.compile(r"<\|channel>.*?<channel\|>", re.S | re.I),
+    re.compile(r"<\|channel\|>.*?(<\|channel\|>|$)", re.S | re.I),
+)
+_OUTPUT_RE = re.compile(r"<output\b[^>]*>(.*?)</output\s*>", re.S | re.I)
+_VISIBLE_REASONING_RE = re.compile(
+    r"^\s*(thinking process|let me think)[: ].*?(final answer|answer|output)\s*:\s*",
+    re.S | re.I,
 )
 
 
@@ -117,7 +124,16 @@ def _strip_think(text: str) -> str:
     if not text:
         return ""
     for pattern in _THINK_TAGS:
-        text = re.sub(pattern, "", text, flags=re.S | re.I)
+        text = pattern.sub("", text)
+    text = _OUTPUT_RE.sub(r"\1", text)
+    visible = _VISIBLE_REASONING_RE.search(text)
+    if visible:
+        text = text[visible.end():]
+    else:
+        low = text.lstrip().lower()
+        if low.startswith(("thinking process:", "let me think:")):
+            parts = re.split(r"\n\s*\n", text.strip(), maxsplit=1)
+            text = parts[1] if len(parts) == 2 else ""
     return text.strip()
 
 

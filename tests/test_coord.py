@@ -9,9 +9,14 @@ hung registry can never wedge the SessionStart hook.
 from __future__ import annotations
 
 import subprocess
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import agent_memory.features.coord.command as coord_mod
+
+
+def _ts(delta: timedelta) -> str:
+    return (datetime.now(UTC) + delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def test_coord_status_missing_binary(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -58,6 +63,33 @@ def test_coord_cleanup_passes_cleanup_flag(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(coord_mod.subprocess, "run", fake_run)
     assert coord_mod.coord_cleanup(tmp_path) == 0
     assert "--cleanup" in seen[0]
+
+
+def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(coord_mod.shutil, "which", lambda name: None)
+    monkeypatch.setattr(coord_mod, "ORCH_SCRIPT", tmp_path / "missing-orch.py")
+    bank = tmp_path / ".memory-bank"
+    bank.mkdir()
+    old = _ts(timedelta(minutes=-30))
+    now = _ts(timedelta())
+    registry = bank / "agent-sessions.md"
+    registry.write_text(
+        "# Agent Sessions\n\n"
+        "## Active\n"
+        f"- {old} | agent:codex | pid:pid:999999 | branch:main | task:\"old\" | "
+        f"heartbeat:{old}\n"
+        f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
+        f"heartbeat:{now}\n\n"
+        "## Recently Ended\n",
+        encoding="utf-8",
+    )
+
+    assert coord_mod.coord_cleanup(tmp_path) == 0
+    body = registry.read_text(encoding="utf-8")
+    assert "current" in body
+    assert "old" not in body
 
 
 def test_coord_cleanup_runs_broker_cleanup_when_available(
