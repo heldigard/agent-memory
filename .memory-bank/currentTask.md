@@ -1,17 +1,14 @@
 # Current Task
-> Updated: 2026-07-04
+> Updated: 2026-07-08
 
 ## Goal
-- One-line objective
+- None.
 
 ## Scope
-- What is included
-- What is NOT included
+- No active implementation guide.
 
 ## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
+- See progress.md for completed coordination-hygiene work.
 
 ## Related
-- Files changed
-- PR / issue links
+- n/a

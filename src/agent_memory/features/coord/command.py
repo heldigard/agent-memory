@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 COORD_BIN = "agent-coordination-status"
+ORCH_SCRIPT = Path.home() / ".claude" / "scripts" / "cli-orchestration.py"
 
 
 def _run(root: Path, extra: list[str]) -> int:
@@ -44,5 +45,25 @@ def coord_status(root: Path) -> int:
 
 
 def coord_cleanup(root: Path) -> int:
-    """Remove stale coordination entries and compact the registry."""
-    return _run(root, ["--cleanup"])
+    """Remove stale coordination entries and compact lease-broker state."""
+    rc = _run(root, ["--cleanup"])
+    if ORCH_SCRIPT.exists():
+        try:
+            broker = subprocess.run(
+                [sys.executable, str(ORCH_SCRIPT), "cleanup", "--project", str(root)],
+                check=False,
+                timeout=30,
+                text=True,
+                capture_output=True,
+            )
+        except subprocess.TimeoutExpired:
+            print("'cli-orchestration cleanup' timed out after 30s", file=sys.stderr)
+            return 1 if rc == 0 else rc
+        except OSError as exc:
+            print(f"broker cleanup failed to launch: {exc}", file=sys.stderr)
+            return 1 if rc == 0 else rc
+        if broker.returncode != 0:
+            if broker.stderr:
+                print(broker.stderr.strip(), file=sys.stderr)
+            return broker.returncode if rc == 0 else rc
+    return rc

@@ -21,6 +21,7 @@ from agent_memory.shared.config import (
     DEFAULT_ARCHIVE_WINDOW_HOURS,
     DEFAULT_INJECTION_WINDOW_HOURS,
     NEVER_ARCHIVED,
+    OPERATIONAL_TOPIC_SLUGS,
     TOPICS_DIR,
     VALID_STATUS,
 )
@@ -30,6 +31,10 @@ from agent_memory.shared.text import slugify
 _ENTRY_TS_RE = re.compile(r"^\s*-\s*(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}:\d{2})Z)?")
 _STATUS_SEG_RE = re.compile(r"\|\s*status:([A-Za-z]+)\b")
 _SESSION_SEG_RE = re.compile(r"\|\s*session:([A-Za-z0-9_:-]+)\b")
+_COORD_FIELD_RE = re.compile(r"\|\s*([A-Za-z_]+):([^|]+)")
+_COORD_ACTIVE_STALE_MINUTES = 10.0
+_COORD_COMPLETED_VISIBLE_MINUTES = 2.0
+_COORD_EMPTY_ACTIVE_SECONDS = 60.0
 
 
 def now_iso() -> str:
@@ -87,6 +92,66 @@ def _entry_age_hours(ts: str | None) -> float | None:
     except ValueError:
         return None
     return (datetime.now(UTC) - dt).total_seconds() / 3600.0
+
+
+def _coord_window_minutes(env_name: str, default: float) -> float:
+    raw = os.environ.get(env_name)
+    if raw is None:
+        return default
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return default
+
+
+def _coord_time(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    return _parse_iso(value.strip().strip('"'))
+
+
+def _parse_iso(value: str) -> datetime | None:
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
+def _coord_age_seconds(value: str | None) -> float | None:
+    dt = _coord_time(value)
+    if dt is None:
+        return None
+    return (datetime.now(UTC) - dt).total_seconds()
+
+
+def is_stale_coordination_line(line: str) -> bool:
+    """True when an auto-generated agent registry line is too old for injection."""
+    if "agent:" not in line:
+        return False
+    info = parse_entry(line)
+    if info["ts"] is None:
+        return False
+    fields = {
+        m.group(1).strip(): m.group(2).strip().strip('"')
+        for m in _COORD_FIELD_RE.finditer(line)
+    }
+    status = fields.get("status", "").lower()
+    if status == "completed":
+        age = _coord_age_seconds(fields.get("ended") or fields.get("ended_at") or info["ts"])
+        window = _coord_window_minutes(
+            "MEMORY_COORD_COMPLETED_VISIBLE_MINUTES", _COORD_COMPLETED_VISIBLE_MINUTES
+        )
+        return age is None or age > window * 60
+
+    heartbeat = fields.get("heartbeat") or info["ts"]
+    age = _coord_age_seconds(heartbeat)
+    if age is None:
+        return True
+    has_claim = bool(fields.get("task", "").strip() or fields.get("files", "").strip())
+    if not has_claim and fields.get("pid", "").startswith("pid:"):
+        return age > _COORD_EMPTY_ACTIVE_SECONDS
+    window = _coord_window_minutes("MEMORY_COORD_ACTIVE_STALE_MINUTES", _COORD_ACTIVE_STALE_MINUTES)
+    return age > window * 60
 
 
 def archive_window_hours() -> float:
@@ -159,6 +224,14 @@ def filter_lines_for_injection(_name: str, lines: list[str]) -> list[str]:
     helpers but is not currently used to decide filtering."""
     if os.environ.get("MEMORY_FILTER_STALE_ACTIVE", "1") == "0":
         return lines
+    if _name == "agent-sessions.md":
+        return [line for line in lines if not is_stale_coordination_line(line)]
+    if _name == f"{TOPICS_DIR}/_index.md":
+        return [
+            line
+            for line in lines
+            if not any(f"({slug}.md)" in line for slug in OPERATIONAL_TOPIC_SLUGS)
+        ]
     return [line for line in lines if not is_stale_for_injection(line)]
 
 

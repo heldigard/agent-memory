@@ -148,3 +148,8 @@ EPISODIC_MARKERS: tuple[str, ...] = (
     "archive",
     "foreign-sessions",
 )
+OPERATIONAL_TOPIC_SLUGS: tuple[str, ...] = (
+    "agent-sessions",
+    "foreign-sessions",
+    "session-handoffs",
+)

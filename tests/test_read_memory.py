@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from agent_memory.features.bank.command import read_memory
@@ -10,6 +11,10 @@ from agent_memory.features.bank.command import read_memory
 def _seed_lines(path: Path, n: int) -> None:
     """Write ``n`` numbered lines to ``path``."""
     path.write_text("\n".join(f"line {i}" for i in range(n)) + "\n")
+
+
+def _ts(delta: timedelta) -> str:
+    return (datetime.now(UTC) + delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class TestReadMemoryBounded:
@@ -53,3 +58,50 @@ class TestReadMemoryBounded:
 
         with pytest.raises(SystemExit, match="Topic not found"):
             read_memory(bank, per_file_lines=10, total_lines=100, topic="nonexistent")
+
+    def test_agent_sessions_filters_stale_coordination_noise(
+        self, bank: Path, capsys
+    ) -> None:
+        """Old auto-generated coordination rows are hidden from startup context."""
+        now = _ts(timedelta())
+        old = _ts(timedelta(minutes=-30))
+        registry = bank / ".memory-bank" / "agent-sessions.md"
+        registry.write_text(
+            "# Agent Sessions\n"
+            "> Auto-generated coordination registry. Do not edit manually.\n\n"
+            "## Active\n"
+            f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
+            f"heartbeat:{now}\n"
+            f"- {old} | agent:claude | pid:pid:999999 | branch:main | task:\"old\" | "
+            f"heartbeat:{old}\n\n"
+            "## Recently Ended\n"
+            f"- {old} | agent:gemini | pid:sid-old | branch:main | heartbeat:{old} | "
+            f"status:completed | ended:{old}\n",
+            encoding="utf-8",
+        )
+
+        read_memory(bank, per_file_lines=20, total_lines=100)
+        out = capsys.readouterr().out
+        assert "current" in out
+        assert "old" not in out
+        assert "sid-old" not in out
+
+    def test_topic_index_filters_operational_session_topics(
+        self, bank: Path, capsys
+    ) -> None:
+        """Default reads hide session-log topics but keep domain topics."""
+        index = bank / ".memory-bank" / "topics" / "_index.md"
+        index.write_text(
+            "# Topic Index\n\n"
+            "## Topics\n"
+            "- [Foreign Sessions](foreign-sessions.md)\n"
+            "- [Agent Sessions](agent-sessions.md)\n"
+            "- [Auth Flow](auth-flow.md)\n",
+            encoding="utf-8",
+        )
+
+        read_memory(bank, per_file_lines=20, total_lines=100)
+        out = capsys.readouterr().out
+        assert "auth-flow.md" in out
+        assert "foreign-sessions.md" not in out
+        assert "[Agent Sessions](agent-sessions.md)" not in out
