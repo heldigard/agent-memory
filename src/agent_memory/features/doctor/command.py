@@ -19,6 +19,7 @@ them for humans or emits JSON. Mutates nothing.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import sys
@@ -78,6 +79,7 @@ def run_doctor(root: Path) -> list[Finding]:
     findings.extend(_check_broken_refs(memory))
     findings.extend(_check_dead_pids(memory))
     findings.extend(_check_index(root, memory))
+    findings.extend(_check_harness_integration())
     findings.sort(key=lambda f: _SEVERITY_ORDER.get(f.severity, 9))
     return findings
 
@@ -180,6 +182,47 @@ def _dead_pid_findings_in(path: Path, rel: str) -> list[Finding]:
     return out
 
 
+def _check_harness_integration() -> list[Finding]:
+    """Verify that global harness shims and environment variables are healthy."""
+    import shutil
+    out: list[Finding] = []
+
+    # 1. Check if agent-memory is on PATH
+    if not shutil.which("agent-memory"):
+        out.append(
+            Finding(
+                severity="warn",
+                check="harness-path",
+                detail="command 'agent-memory' not found on PATH",
+                hint="run `uv pip install -e .` or verify shell path setup",
+            )
+        )
+
+    # 2. Check for crucial shims in ~/.claude/
+    home = Path.home()
+    shims = {
+        ".claude/hooks/memory-bank-budget-guard.py": "memory budget-guard hook",
+        ".claude/hooks/decision-tracker.py": "decision-tracker hook",
+        ".claude/hooks/recuerda-auto-append.py": "recuerda auto-append hook",
+        ".claude/hooks/memory-inject.sh": "memory injection startup hook",
+        ".claude/scripts/project-memory.py": "project-memory CLI backcompat shim",
+        ".claude/scripts/memory-auto-maintain.py": "memory-auto-maintain CLI backcompat shim",
+        ".claude/scripts/memory-semantic.py": "memory-semantic CLI backcompat shim",
+    }
+    for rel, desc in shims.items():
+        p = home / rel
+        if not p.is_file():
+            out.append(
+                Finding(
+                    severity="warn",
+                    check="harness-shim",
+                    detail=f"global harness shim missing: {rel} ({desc})",
+                    hint="re-run harness auto-setup or restore the shim file",
+                )
+            )
+    return out
+
+
 def _check_index(root: Path, memory: Path) -> list[Finding]:
     """Semantic index: existence, shape consistency, orphans, hash collisions."""
     idx = index_dir(root)
@@ -218,16 +261,57 @@ def _check_index(root: Path, memory: Path) -> list[Finding]:
             )
         )
     out.extend(_check_hash_collisions(manifest))
+
+    # Check sidecar files for mismatched version/model
+    from agent_memory.shared.config import EMBED_MODEL_FILE, INDEX_VERSION, VERSION_FILE
+    from agent_memory.shared.ollama import DEFAULT_EMBED_MODEL
+
+    stored_model = ""
+    stored_version = ""
+    with contextlib.suppress(OSError):
+        stored_model = (idx / EMBED_MODEL_FILE).read_text(encoding="utf-8").strip()
+    with contextlib.suppress(OSError):
+        stored_version = (idx / VERSION_FILE).read_text(encoding="utf-8").strip()
+
+    if stored_model and stored_model != DEFAULT_EMBED_MODEL:
+        out.append(
+            Finding(
+                severity="warn",
+                check="index-model",
+                detail=(
+                    f"mismatched embedding model: stored={stored_model} "
+                    f"vs config={DEFAULT_EMBED_MODEL}"
+                ),
+                hint="run `agent-memory semindex --rebuild` to regenerate embeddings",
+            )
+        )
+    if stored_version and stored_version != INDEX_VERSION:
+        out.append(
+            Finding(
+                severity="warn",
+                check="index-version",
+                detail=(
+                    f"mismatched index version: stored={stored_version} "
+                    f"vs config={INDEX_VERSION}"
+                ),
+                hint="run `agent-memory semindex --rebuild` to regenerate index",
+            )
+        )
+
     if not ollama_is_alive():
         out.append(
             Finding(
                 severity="info",
                 check="index",
                 detail="ollama daemon not reachable — semantic ops will degrade to keyword",
-                hint="start ollama (with `embeddinggemma` + `cryptidbleh/gemma4-claude-opus-4.6:latest`) to re-enable",
+                hint=(
+                    "start ollama (with `embeddinggemma` + "
+                    "`cryptidbleh/gemma4-claude-opus-4.6:latest`) to re-enable"
+                ),
             )
         )
     return out
+
 
 
 def _check_hash_collisions(manifest: list[dict]) -> list[Finding]:

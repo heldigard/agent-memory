@@ -3,3 +3,4 @@
 
 ## Topics
 - TBD
+- [session-handoffs](session-handoffs.md)

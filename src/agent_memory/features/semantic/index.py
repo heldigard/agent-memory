@@ -54,7 +54,7 @@ def load_index(idx: Path) -> tuple[np.ndarray, list[dict]]:
     try:
         vectors = np.load(vpath)["vectors"]
         manifest = _load_json(mpath)
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, EOFError):
         return np.empty((0, 0), dtype=np.float32), []
     if len(manifest) != vectors.shape[0]:
         return np.empty((0, 0), dtype=np.float32), []

@@ -1,2 +1,9 @@
 {"id": "g_001", "s": "agent-memory", "p": "consumes-ranking-from", "o": "ollama-bench", "t": "2026-07-07", "src": "progress.md", "supersedes": [], "aliases": []}
 {"id": "g_002", "s": "agent-memory", "p": "DEPENDS_ON", "o": "ollama-bench", "t": "2026-07-07", "src": "progress.md", "supersedes": [], "aliases": []}
+{"id": "g_003", "s": "fusion-local", "p": "DEPENDS_ON", "o": "cheap-llm", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}
+{"id": "g_004", "s": "web-research", "p": "DEPENDS_ON", "o": "cheap-llm", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}
+{"id": "g_005", "s": "prompt-router", "p": "USES", "o": "skill-router", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}
+{"id": "g_006", "s": "agent-coordination", "p": "USES", "o": "agent-memory", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}
+{"id": "g_007", "s": "cli-orchestration", "p": "OWNS", "o": "leases", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}
+{"id": "g_008", "s": "cli-orchestration", "p": "OWNS", "o": "cworker", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}
+{"id": "g_009", "s": "cli-orchestration", "p": "OWNS", "o": "agentic-cycle", "t": "2026-07-08", "src": "systemPatterns.md", "supersedes": [], "aliases": []}

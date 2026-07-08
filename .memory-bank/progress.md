@@ -15,3 +15,6 @@
 - 2026-07-08T01:02:55Z | status:completed | Doc hygiene: README CODEQ_SUMMARY_MODEL default aligned with runtime SetneufPT/Qwopus3.5 shared default.
 - 2026-07-08T01:39:45Z | 2026-07-08: Ecosystem Ollama handling aligned with ollama-bench refactor: maintenance/rerank generation should keep using local client stripping for recoverable reasoning traces, preserving cache compatibility. Local shared Ollama tests passed after verification.
 - 2026-07-08T02:08:12Z | status:completed | 2026-07-08: Updated Ollama role defaults from refactor ranking: maintain/audit model now jaahas/crow:9b (codeq_sum #1); semantic rerank model now functiongemma for structured relevance scoring. Base DEFAULT_GEN_MODEL intentionally stays qwen3.5:4b for compatibility with existing client/cache semantics. Reasoning stripper handles orphan closing tags.
+- 2026-07-08T17:12:00Z | status:completed | Ecosystem synergy: Added global harness integration and version/model sidecar checks to agent-memory doctor. Improved load_index robustness by catching EOFError on empty/corrupted npz files. Updated outdated model references in REFERENCE.md to match current ollama-bench RANKING.md. Added ecosystem relationship facts to memory graph. +2 tests. 162 total pass.
+
+- 2026-07-08T22:13:21Z | status:completed | session:2f1b486d-5995-4f72-86f5-736a83b03c58 | gemini: None.

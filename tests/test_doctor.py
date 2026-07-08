@@ -95,3 +95,38 @@ def test_doctor_json_output_round_trips(tmp_path: Path, capsys) -> None:
     assert all("severity" in d and "check" in d and "detail" in d for d in data)
     # healthy bank (no errors) → exit 0
     assert rc == 0
+
+
+def test_doctor_harness_integration_missing(tmp_path: Path, monkeypatch) -> None:
+    # Point home to a temp dir so that the shims check doesn't find them and reports warnings.
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+    monkeypatch.setattr("shutil.which", lambda name: None)  # Make sure agent-memory is not on PATH
+
+    root = _seed_min(tmp_path)
+    findings = run_doctor(root)
+    harness_shims = [f for f in findings if f.check == "harness-shim"]
+    harness_path = [f for f in findings if f.check == "harness-path"]
+    assert len(harness_shims) > 0
+    assert len(harness_path) > 0
+
+
+def test_doctor_mismatched_index_version_or_model(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    # Seed a mismatched index.
+    bank = root / ".memory-bank"
+    idx = bank / ".index"
+    idx.mkdir(exist_ok=True)
+    (idx / "vectors.npz").write_bytes(b"")  # empty / mock
+    (idx / "manifest.json").write_text("[]", encoding="utf-8")
+
+    from agent_memory.shared.config import EMBED_MODEL_FILE, VERSION_FILE
+    (idx / EMBED_MODEL_FILE).write_text("wrong-model", encoding="utf-8")
+    (idx / VERSION_FILE).write_text("wrong-version", encoding="utf-8")
+
+    findings = run_doctor(root)
+    model_mismatch = [f for f in findings if f.check == "index-model"]
+    version_mismatch = [f for f in findings if f.check == "index-version"]
+    assert model_mismatch
+    assert version_mismatch
