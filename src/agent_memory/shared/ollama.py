@@ -26,7 +26,7 @@ from typing import Any
 DEFAULT_URL = "http://localhost:11434"
 # MUST match the ecosystem ollama_client defaults so existing indices stay
 # valid and the cache is shared.
-DEFAULT_GEN_MODEL = "qwen3.5:4b"
+DEFAULT_GEN_MODEL = "cryptidbleh/gemma4-claude-opus-4.6:latest"
 DEFAULT_EMBED_MODEL = "embeddinggemma"  # 768-dim — eval winner 2026-06-28
 DEFAULT_TIMEOUT = 120
 EMBED_TIMEOUT = 60
