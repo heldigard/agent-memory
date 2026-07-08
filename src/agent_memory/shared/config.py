@@ -130,10 +130,9 @@ RERANK_TOPN = 12
 
 # Maintenance LLM model (overrides via env, same var as codeq summary layer).
 # Tracks the codeq_sum bench winner — they intentionally share CODEQ_SUMMARY_MODEL.
-# 2026-07-05 round-5: SetneufPT took #1 (combined 2.0) after batiai/gemma4-e4b:q4
-# collapsed in the tie-break (Ollama 0.31.x sampling drift on hard prompts). See
-# ~/ollama-bench/RANKING.md §codeq_sum.
-MAINT_MODEL_DEFAULT = "SetneufPT/Qwopus3.5-4B-Coder-MTP_Q4_64k_8GB-GPU:latest"
+# 2026-07-08 canonical refactor: jaahas/crow:9b is codeq_sum #1 (9.23),
+# with SetneufPT kept as the documented fallback in ~/ollama-bench/RANKING.md.
+MAINT_MODEL_DEFAULT = "jaahas/crow:9b"
 MAINT_AUDIT_LINE_CAP = 150
 MAINT_AUDIT_CHAR_BUDGET = 6000
 

@@ -19,7 +19,7 @@ See `README.md` for the user-facing overview.
 - **Language:** Python ≥ 3.11 (target py311; mypy checked at 3.13)
 - **Build:** hatchling (`pyproject.toml`)
 - **Runtime dep:** `numpy>=1.26` (only hard dep — vectors + BM25 math)
-- **Optional (LLM):** local Ollama (`embeddinggemma` for embeddings, `qwen3.5:4b` for rerank/maintain). Degrades gracefully when down.
+- **Optional (LLM):** local Ollama (`embeddinggemma` for embeddings, `jaahas/crow:9b` for maintain, functiongemma for semantic rerank). Degrades gracefully when down.
 - **Test/dev:** pytest, pytest-cov, ruff, mypy
 
 ## Entry Points

@@ -1,0 +1,2 @@
+{"id": "g_001", "s": "agent-memory", "p": "consumes-ranking-from", "o": "ollama-bench", "t": "2026-07-07", "src": "progress.md", "supersedes": [], "aliases": []}
+{"id": "g_002", "s": "agent-memory", "p": "DEPENDS_ON", "o": "ollama-bench", "t": "2026-07-07", "src": "progress.md", "supersedes": [], "aliases": []}

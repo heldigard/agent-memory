@@ -125,6 +125,7 @@ def _strip_think(text: str) -> str:
         return ""
     for pattern in _THINK_TAGS:
         text = pattern.sub("", text)
+    text = re.sub(r"^.*?</(?:think|reasoning|reflection)\s*>", "", text, flags=re.S | re.I)
     text = _OUTPUT_RE.sub(r"\1", text)
     visible = _VISIBLE_REASONING_RE.search(text)
     if visible:

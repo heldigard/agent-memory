@@ -73,7 +73,7 @@ agent-memory status --json            # bank snapshot for hooks/quota tooling
 |---|---|---|
 | `AGENT_MEMORY_OLLAMA_URL` | `http://localhost:11434` | Daemon URL override |
 | `AGENT_MEMORY_EMBED_WORKERS` | `4` | Parallel embed threads for `semindex` (set `1` for serial) |
-| `CODEQ_SUMMARY_MODEL` | `SetneufPT/Qwopus3.5-4B-Coder-MTP_Q4_64k_8GB-GPU:latest` | Maintain/audit local model |
+| `CODEQ_SUMMARY_MODEL` | `jaahas/crow:9b` | Maintain/audit local model |
 | `CODEQ_NO_LLM` / `PROJECT_MEMORY_NO_LLM` | unset | Skip all Ollama calls (deterministic only) |
 | `MEMORY_ACTIVE_WINDOW_HOURS` | `6.0` | Freshness window for completed-entry archival |
 | `MEMORY_STALENESS_DAYS` | `14` | Staleness threshold for `auto-maintain-check` |
