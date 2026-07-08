@@ -130,9 +130,9 @@ RERANK_TOPN = 12
 
 # Maintenance LLM model (overrides via env, same var as codeq summary layer).
 # Tracks the codeq_sum bench winner — they intentionally share CODEQ_SUMMARY_MODEL.
-# 2026-07-08 canonical refactor: jaahas/crow:9b is codeq_sum #1 (9.23),
+# 2026-07-08 canonical refactor: batiai/gemma4-e4b:q4 is codeq_sum #1 (9.23),
 # with SetneufPT kept as the documented fallback in ~/ollama-bench/RANKING.md.
-MAINT_MODEL_DEFAULT = "jaahas/crow:9b"
+MAINT_MODEL_DEFAULT = "batiai/gemma4-e4b:q4"
 MAINT_AUDIT_LINE_CAP = 150
 MAINT_AUDIT_CHAR_BUDGET = 6000
 
