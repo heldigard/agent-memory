@@ -32,7 +32,7 @@ class Bm25Ctx:
     n_docs: int
 
 
-RERANK_MODEL = "hf.co/slyfox1186/qwen3.5-9b-opus-4.6-functiongemma.gguf:Q4_K_M"
+RERANK_MODEL = "SetneufPT/Qwopus3.5-4B-Coder-MTP_Q4_64k_8GB-GPU:latest"
 _TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 _STOPWORDS = frozenset(
     [
