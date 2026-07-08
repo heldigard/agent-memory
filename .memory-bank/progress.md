@@ -13,3 +13,4 @@
 - 2026-07-08T00:36:00Z | status:completed | Follow-up hygiene: default memory reads also hide operational topic-index entries (agent-sessions, foreign-sessions, session-handoffs) while preserving explicit topic reads.
 - 2026-07-08T00:49:42Z | status:completed | Second review: local Ollama output stripping handles visible reasoning wrappers; `coord --cleanup` now falls back to local `agent-sessions.md` filtering when `agent-coordination-status` is absent.
 - 2026-07-08T01:02:55Z | status:completed | Doc hygiene: README CODEQ_SUMMARY_MODEL default aligned with runtime SetneufPT/Qwopus3.5 shared default.
+- 2026-07-08T01:39:45Z | 2026-07-08: Ecosystem Ollama handling aligned with ollama-bench refactor: maintenance/rerank generation should keep using local client stripping for recoverable reasoning traces, preserving cache compatibility. Local shared Ollama tests passed after verification.
