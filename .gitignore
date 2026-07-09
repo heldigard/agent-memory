@@ -31,4 +31,6 @@ htmlcov/
 
 # Local memory bank index (regenerable binary embeddings)
 .memory-bank/.index/
+.memory-bank/agent-sessions*
+.memory-bank/topics/agent-sessions*
 .claude/
