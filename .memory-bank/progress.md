@@ -18,3 +18,4 @@
 - 2026-07-08T17:12:00Z | status:completed | Ecosystem synergy: Added global harness integration and version/model sidecar checks to agent-memory doctor. Improved load_index robustness by catching EOFError on empty/corrupted npz files. Updated outdated model references in REFERENCE.md to match current ollama-bench RANKING.md. Added ecosystem relationship facts to memory graph. +2 tests. 162 total pass.
 
 - 2026-07-08T22:13:21Z | status:completed | session:2f1b486d-5995-4f72-86f5-736a83b03c58 | gemini: None.
+- 2026-07-09T14:58:28Z | status:completed | 2026-07-09: Hardened memory-write safety and cross-CLI coordination cleanup. The content guard now blocks credential-shaped material while allowing operational notes about scanners and synthetic fixtures; coord cleanup now drops dead pid registry noise. Verified with pytest, ruff, mypy, codescan all, vertical-slice guard, and doctor.

@@ -12,3 +12,5 @@
 ### Next Steps
 - [ ] Monitor index health using the new version/model sidecar checks in `agent-memory doctor`.
 - [ ] Keep decision graphs updated as other ecosystem components grow.
+- 2026-07-09T14:51:29Z | status:completed | session:pid:479699 | Review and harden agent-memory sensitive-content memory write behavior and cross-CLI diagnostics after false positives in progress notes.
+- 2026-07-09T15:01:58Z | status:completed | session:pid:580721 | Finalize memory, clean coordination noise, commit, and push agent-memory changes.

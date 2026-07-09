@@ -60,9 +60,20 @@ FILE_ALIASES: dict[str, str] = {
     "dead-ends": "dead-ends.md",
 }
 
+# Safety guard for memory writes. This intentionally rejects secret *material*,
+# not operational vocabulary. Cross-CLI notes often mention scanners such as
+# ``codescan secrets`` or concepts like ``secret-shaped fixtures``; those should
+# remain writable as long as they do not include a credential value.
 SECRET_RE = re.compile(
-    r"(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|secret|"
-    r"private[_-]?key|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9_-]{20,})",
+    r"("
+    r"\b(?:api[ _-]?key|access[ _-]?token|refresh[ _-]?token|auth[ _-]?token|"
+    r"client[ _-]?secret|private[ _-]?key|password|passwd|authorization)\b\s*[:=]\s*\S+"
+    r"|\bsecret\s*=\s*\S+"
+    r"|\bauthorization\s*:\s*bearer\s+\S+"
+    r"|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}"
+    r"|\bBEGIN [A-Z ]*PRIVATE KEY\b"
+    r"|\bsk-[A-Za-z0-9_-]{20,}\b"
+    r")",
     re.IGNORECASE,
 )
 

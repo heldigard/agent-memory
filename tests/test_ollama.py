@@ -50,6 +50,16 @@ def test_is_alive_false_on_url_error(monkeypatch) -> None:
     assert ollama.is_alive(timeout=1.0) is False
 
 
+def test_is_alive_false_on_invalid_scheme(monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_OLLAMA_URL", "file:///etc/passwd")
+
+    def _unexpected(req, timeout=None):
+        raise AssertionError("urlopen should not run for non-http Ollama URLs")
+
+    _patch_post(monkeypatch, _unexpected)
+    assert ollama.is_alive(timeout=1.0) is False
+
+
 def test_generate_returns_response_and_caches(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(ollama, "OLLAMA_CACHE_DIR", tmp_path)
     calls = {"n": 0}
@@ -137,3 +147,17 @@ def test_request_error_carries_status(monkeypatch) -> None:
         assert exc.status == 500
         return
     raise AssertionError("expected OllamaRequestError on HTTP 500")
+
+
+def test_post_rejects_invalid_scheme(monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_OLLAMA_URL", "file:///etc/passwd")
+
+    def _unexpected(req, timeout=None):
+        raise AssertionError("urlopen should not run for non-http Ollama URLs")
+
+    _patch_post(monkeypatch, _unexpected)
+    try:
+        ollama._post("/api/generate", {}, 1.0)
+    except ollama.OllamaUnavailable:
+        return
+    raise AssertionError("expected OllamaUnavailable for invalid scheme")

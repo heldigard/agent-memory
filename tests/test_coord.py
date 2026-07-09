@@ -80,6 +80,8 @@ def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
         "## Active\n"
         f"- {old} | agent:codex | pid:pid:999999 | branch:main | task:\"old\" | "
         f"heartbeat:{old}\n"
+        f"- {now} | agent:codex | pid:pid:999999 | branch:main | task:\"None.\" | "
+        f"heartbeat:{now}\n"
         f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
         f"heartbeat:{now}\n\n"
         "## Recently Ended\n",
@@ -90,6 +92,7 @@ def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
     body = registry.read_text(encoding="utf-8")
     assert "current" in body
     assert "old" not in body
+    assert "None." not in body
 
 
 def test_coord_cleanup_runs_broker_cleanup_when_available(

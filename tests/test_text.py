@@ -28,12 +28,18 @@ class TestEnsureSafeText:
             ensure_safe_text("x" * 51, max_chars=50)
 
     def test_secret_api_key_raises(self) -> None:
+        key = "sk-" + "abc123def456ghi789jkl012mno"
         with pytest.raises(SystemExit, match="secret"):
-            ensure_safe_text("api_key=sk-abc123def456ghi789jkl012mno")
+            ensure_safe_text(f"api_key={key}")
+
+    def test_secret_value_assignment_raises(self) -> None:
+        with pytest.raises(SystemExit, match="secret"):
+            ensure_safe_text("secret=synthetic-value")
 
     def test_secret_bearer_token_raises(self) -> None:
+        key = "sk-" + "abc123def456ghi789jkl012mno"
         with pytest.raises(SystemExit, match="secret"):
-            ensure_safe_text("Authorization: Bearer sk-abc123def456ghi789jkl012mno")
+            ensure_safe_text(f"Authorization: Bearer {key}")
 
     def test_secret_password_raises(self) -> None:
         with pytest.raises(SystemExit, match="secret"):
@@ -45,6 +51,21 @@ class TestEnsureSafeText:
 
     def test_harmless_text_with_word_key_passes(self) -> None:
         ensure_safe_text("the keyboard shortcut is Ctrl+C")
+
+    def test_operational_secret_scanner_note_passes(self) -> None:
+        ensure_safe_text(
+            "Updated doctor to enforce the codescan structured_json contract for "
+            "dead/sec/secrets/arch/all/capabilities."
+        )
+
+    def test_secret_shaped_fixture_note_passes(self) -> None:
+        ensure_safe_text(
+            "Cleaned scrubber test fixtures. Secret-shaped fixtures are now constructed "
+            "from synthetic parts so gitleaks reports 0 findings."
+        )
+
+    def test_conceptual_token_note_passes(self) -> None:
+        ensure_safe_text("Documented auth token refresh behavior without raw values.")
 
 
 class TestSlugify:

@@ -72,6 +72,8 @@ class TestReadMemoryBounded:
             "## Active\n"
             f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
             f"heartbeat:{now}\n"
+            f"- {now} | agent:codex | pid:pid:999999 | branch:main | task:\"None.\" | "
+            f"heartbeat:{now}\n"
             f"- {old} | agent:claude | pid:pid:999999 | branch:main | task:\"old\" | "
             f"heartbeat:{old}\n\n"
             "## Recently Ended\n"
@@ -83,6 +85,7 @@ class TestReadMemoryBounded:
         read_memory(bank, per_file_lines=20, total_lines=100)
         out = capsys.readouterr().out
         assert "current" in out
+        assert "None." not in out
         assert "old" not in out
         assert "sid-old" not in out
 

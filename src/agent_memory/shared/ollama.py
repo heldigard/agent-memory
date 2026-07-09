@@ -19,6 +19,7 @@ import json
 import os
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -69,7 +70,12 @@ class OllamaRequestError(OllamaUnavailable):
 
 def _base_url() -> str:
     """Resolve the daemon URL from env (override) or the default."""
-    return os.environ.get("AGENT_MEMORY_OLLAMA_URL", DEFAULT_URL).rstrip("/")
+    raw = os.environ.get("AGENT_MEMORY_OLLAMA_URL", DEFAULT_URL).rstrip("/")
+    base = _normalize(raw)
+    parsed = urllib.parse.urlparse(base)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("AGENT_MEMORY_OLLAMA_URL must be an http(s) URL")
+    return base
 
 
 def _gen_timeout() -> float:
@@ -84,9 +90,10 @@ def is_alive(timeout: float = 2.0) -> bool:
     """True iff the daemon answers ``/api/tags`` quickly."""
     try:
         req = urllib.request.Request(f"{_base_url()}/api/tags", method="GET")
+        # nosemgrep
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status == 200
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+    except (ValueError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
         return False
 
 
@@ -98,16 +105,19 @@ def _normalize(url: str) -> str:
 
 
 def _post(path: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
-    url = f"{_normalize(_base_url())}{path}"
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
+        url = f"{_base_url()}{path}"
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        # nosemgrep
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
+    except ValueError as exc:
+        raise OllamaUnavailable(str(exc)) from exc
     except urllib.error.HTTPError as exc:
         try:
             body = exc.read().decode("utf-8", errors="replace")

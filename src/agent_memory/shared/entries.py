@@ -143,11 +143,16 @@ def is_stale_coordination_line(line: str) -> bool:
         )
         return age is None or age > window * 60
 
+    pid = _session_pid(fields.get("pid"))
+    if pid is not None and not _pid_is_alive(pid):
+        return True
+
     heartbeat = fields.get("heartbeat") or info["ts"]
     age = _coord_age_seconds(heartbeat)
     if age is None:
         return True
-    has_claim = bool(fields.get("task", "").strip() or fields.get("files", "").strip())
+    task = fields.get("task", "").strip().strip('"')
+    has_claim = bool((task and task.lower() != "none.") or fields.get("files", "").strip())
     if not has_claim and fields.get("pid", "").startswith("pid:"):
         return age > _COORD_EMPTY_ACTIVE_SECONDS
     window = _coord_window_minutes("MEMORY_COORD_ACTIVE_STALE_MINUTES", _COORD_ACTIVE_STALE_MINUTES)
@@ -181,7 +186,7 @@ def injection_window_hours() -> float:
 
 
 def _session_pid(session: str | None) -> int | None:
-    match = re.match(r"pid:(\d+)$", session or "")
+    match = re.match(r"(?:pid:)+(\d+)$", session or "")
     if not match:
         return None
     try:
