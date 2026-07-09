@@ -63,6 +63,23 @@ def test_keyword_search_finds_added_text(tmp_path) -> None:
     assert "payments microservice" in buf.getvalue()
 
 
+def test_keyword_search_hides_superseded_unless_requested(tmp_path) -> None:
+    init_memory(tmp_path)
+    add_entry(tmp_path, "progress", "Crow is the primary model", status="superseded")
+    add_entry(tmp_path, "progress", "Batiai is the primary model", status="completed")
+
+    current = StringIO()
+    with redirect_stdout(current):
+        search_memory(tmp_path, "primary model")
+    assert "Batiai" in current.getvalue()
+    assert "Crow" not in current.getvalue()
+
+    historical = StringIO()
+    with redirect_stdout(historical):
+        search_memory(tmp_path, "primary model", include_inactive=True)
+    assert "Crow" in historical.getvalue()
+
+
 def test_archive_topic_moves_file_and_clears_index(tmp_path) -> None:
     init_memory(tmp_path)
     add_topic_entry(tmp_path, "legacy", "obsolete context")

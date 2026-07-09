@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from agent_memory.shared.entries import is_inactive_search_line
 from agent_memory.shared.paths import bank_dir, iter_all_lines
 
 
@@ -25,7 +26,9 @@ def _line_matches(line: str, terms: list[str]) -> bool:
     return all(term in lower for term in terms)
 
 
-def search_memory(root: Path, query: str, max_results: int = 20) -> None:
+def search_memory(
+    root: Path, query: str, max_results: int = 20, *, include_inactive: bool = False
+) -> None:
     """Search core and topic memory files; print matches as ``rel:line: text``."""
     memory = bank_dir(root)
     if not memory.exists():
@@ -34,6 +37,8 @@ def search_memory(root: Path, query: str, max_results: int = 20) -> None:
     terms = _query_terms(query)
     results = 0
     for rel, lineno, line in iter_all_lines(memory):
+        if not include_inactive and is_inactive_search_line(line):
+            continue
         if not _line_matches(line, terms):
             continue
         print(f"- {rel}:{lineno}: {line[:220]}")

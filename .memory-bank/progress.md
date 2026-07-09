@@ -19,3 +19,5 @@
 
 - 2026-07-08T22:13:21Z | status:completed | session:2f1b486d-5995-4f72-86f5-736a83b03c58 | gemini: None.
 - 2026-07-09T14:58:28Z | status:completed | 2026-07-09: Hardened memory-write safety and cross-CLI coordination cleanup. The content guard now blocks credential-shaped material while allowing operational notes about scanners and synthetic fixtures; coord cleanup now drops dead pid registry noise. Verified with pytest, ruff, mypy, codescan all, vertical-slice guard, and doctor.
+- 2026-07-09T21:32:46Z | status:completed | 2026-07-09: Keyword and semantic search now hide superseded/historical entry lines by default; --include-inactive restores them for audits, and superseded is a valid status.
+- 2026-07-09T21:40:55Z | status:completed | 2026-07-09: Added supersede-entry for unique, safe status mutation; used it to retire the intermediate codeq Crow fallback correction without manual Markdown edits. Full pytest, Ruff, mypy, codescan, and real-bank search smokes pass.

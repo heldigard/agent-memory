@@ -15,6 +15,7 @@ from agent_memory.features.semantic.hybrid import hybrid_search
 from agent_memory.features.semantic.index import build_index, index_dir, load_index
 from agent_memory.features.semantic.search import keyword_fallback
 from agent_memory.features.semantic.search import search as dense_search
+from agent_memory.shared.entries import filter_inactive_search_text
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 
 
@@ -25,6 +26,7 @@ class SearchOpts:
     min_score: float = 0.20
     dense: bool = False
     do_rerank: bool = False
+    include_inactive: bool = False
 
 
 def cmd_index(root: Path, rebuild: bool) -> int:
@@ -62,10 +64,23 @@ def cmd_search(root: Path, query: str, k: int, opts: SearchOpts) -> int:
     else:
         records = hybrid_search(vectors, manifest, query, k=k, do_rerank=opts.do_rerank)
     if not records and not ollama_is_alive():
-        records = keyword_fallback(root, query, k=k)
+        records = keyword_fallback(root, query, k=k, include_inactive=opts.include_inactive)
         print("[Ollama down — using keyword fallback]", file=sys.stderr)
+    if not opts.include_inactive:
+        records = _filter_inactive_records(records)
     _print_records(records, query)
     return 0
+
+
+def _filter_inactive_records(records: list[dict]) -> list[dict]:
+    """Strip superseded lines from chunks and discard empty historical hits."""
+    active: list[dict] = []
+    for record in records:
+        text = filter_inactive_search_text(str(record.get("text", "")))
+        if not text:
+            continue
+        active.append({**record, "text": text})
+    return active
 
 
 def cmd_recall(root: Path, k: int, query: str | None, min_score: float, full: bool) -> int:

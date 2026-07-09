@@ -34,6 +34,7 @@ def test_parse_args_builds_all_subcommands() -> None:
         ["read"],
         ["add", "--file", "memory", "--text", "x"],
         ["topic", "--name", "x", "--text", "y"],
+        ["supersede-entry", "old decision"],
         ["search", "q"],
         ["semsearch", "q"],
         ["semindex"],

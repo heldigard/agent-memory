@@ -11,6 +11,7 @@ from agent_memory.features.entries.command import (
     now_iso,
     parse_entry,
     strip_entry_prefix,
+    supersede_entry,
     topic_path,
     validate_status,
 )
@@ -104,3 +105,29 @@ def test_is_duplicate_detects_existing_text(tmp_path) -> None:
 def test_topic_path_slugifies(tmp_path) -> None:
     p = topic_path(tmp_path, "Auth Flow Stuff!")
     assert p.name == "auth-flow-stuff.md"
+
+
+def test_supersede_entry_requires_unique_match_and_updates_status(tmp_path, capsys) -> None:
+    from agent_memory.features.bank.command import add_entry, init_memory
+
+    init_memory(tmp_path)
+    add_entry(tmp_path, "progress", "Crow was the primary model", status="completed")
+    capsys.readouterr()
+    assert supersede_entry(tmp_path, "Crow was", file_name="progress.md") == 0
+    line = next(
+        line
+        for line in (tmp_path / ".memory-bank" / "progress.md").read_text().splitlines()
+        if "Crow was" in line
+    )
+    assert parse_entry(line)["status"] == "superseded"
+
+
+def test_supersede_entry_refuses_ambiguous_match(tmp_path, capsys) -> None:
+    from agent_memory.features.bank.command import add_entry, init_memory
+
+    init_memory(tmp_path)
+    add_entry(tmp_path, "progress", "model decision alpha", status="completed")
+    add_entry(tmp_path, "activeContext", "model decision beta", status="completed")
+    capsys.readouterr()
+    assert supersede_entry(tmp_path, "model decision") == 2
+    assert "matched 2 entries" in capsys.readouterr().err

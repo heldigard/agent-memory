@@ -82,7 +82,15 @@ SECRET_RE = re.compile(
 # incident: an agent compacted memory mid-deploy and lost completed work).
 # ---------------------------------------------------------------------------
 # Valid status values for an entry's `| status:X` segment.
-VALID_STATUS: frozenset[str] = frozenset({"active", "wip", "blocked", "live", "completed"})
+VALID_STATUS: frozenset[str] = frozenset(
+    {"active", "wip", "blocked", "live", "completed", "superseded"}
+)
+
+# Historical states are durable audit evidence, but should not be injected as
+# current facts by default. Search commands expose an explicit opt-in.
+INACTIVE_SEARCH_STATUS: frozenset[str] = frozenset(
+    {"superseded", "archived", "obsolete", "rejected"}
+)
 
 # Status values that NEVER get archived (work in flight or permanent reference).
 NEVER_ARCHIVED: frozenset[str] = frozenset({"active", "wip", "blocked", "live"})

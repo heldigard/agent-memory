@@ -46,8 +46,11 @@ def _rank_dense(
     return out
 
 
-def keyword_fallback(root: Path, query: str, k: int = DEFAULT_K) -> list[dict]:
+def keyword_fallback(
+    root: Path, query: str, k: int = DEFAULT_K, *, include_inactive: bool = False
+) -> list[dict]:
     """Grep-style fallback when Ollama is unavailable. No calibrated scores."""
+    from agent_memory.shared.entries import is_inactive_search_line
     from agent_memory.shared.paths import bank_dir
 
     memory = bank_dir(root)
@@ -59,6 +62,8 @@ def keyword_fallback(root: Path, query: str, k: int = DEFAULT_K) -> list[dict]:
     cap = k * 4
     hits: list[dict] = []
     for rel, lineno, line in iter_all_lines(memory):
+        if not include_inactive and is_inactive_search_line(line):
+            continue
         if not _any_term(line, terms):
             continue
         hits.append(_fallback_hit(rel, lineno, line))

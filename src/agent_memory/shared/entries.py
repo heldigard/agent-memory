@@ -20,6 +20,7 @@ from pathlib import Path
 from agent_memory.shared.config import (
     DEFAULT_ARCHIVE_WINDOW_HOURS,
     DEFAULT_INJECTION_WINDOW_HOURS,
+    INACTIVE_SEARCH_STATUS,
     NEVER_ARCHIVED,
     OPERATIONAL_TOPIC_SLUGS,
     TOPICS_DIR,
@@ -72,6 +73,18 @@ def parse_entry(line: str) -> dict[str, str | None]:
 def strip_entry_prefix(line: str) -> str:
     """Return just the human text of an entry line (any format)."""
     return parse_entry(line)["text"] or ""
+
+
+def is_inactive_search_line(line: str) -> bool:
+    """Return whether a structured memory entry is historical, not current."""
+    return parse_entry(line).get("status") in INACTIVE_SEARCH_STATUS
+
+
+def filter_inactive_search_text(text: str) -> str:
+    """Remove historical entry lines while preserving current lines in a chunk."""
+    return "\n".join(
+        line for line in text.splitlines() if not is_inactive_search_line(line)
+    ).strip()
 
 
 def validate_status(status: str | None) -> str | None:
@@ -132,8 +145,7 @@ def is_stale_coordination_line(line: str) -> bool:
     if info["ts"] is None:
         return False
     fields = {
-        m.group(1).strip(): m.group(2).strip().strip('"')
-        for m in _COORD_FIELD_RE.finditer(line)
+        m.group(1).strip(): m.group(2).strip().strip('"') for m in _COORD_FIELD_RE.finditer(line)
     }
     status = fields.get("status", "").lower()
     if status == "completed":

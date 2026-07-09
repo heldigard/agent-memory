@@ -25,6 +25,7 @@ from agent_memory.features.bank.command import (
 from agent_memory.features.compact.command import archive_topic, compact_memory
 from agent_memory.features.coord.command import coord_cleanup, coord_status
 from agent_memory.features.doctor.command import doctor
+from agent_memory.features.entries.command import supersede_entry
 from agent_memory.features.graph.command import (
     graph_add,
     graph_join,
@@ -82,17 +83,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     add = sub.add_parser("add", help="Append a safe concise entry")
     add.add_argument("--file", required=True, help="Target file or alias")
     add.add_argument("--text", required=True)
-    add.add_argument("--status", help="active|wip|blocked|live|completed")
+    add.add_argument("--status", help="active|wip|blocked|live|completed|superseded")
     add.add_argument("--session", help="Orchestrator session id")
 
     topic = sub.add_parser("topic", help="Append deep context to topics/<slug>.md")
     topic.add_argument("--name", required=True)
     topic.add_argument("--text", required=True)
-    topic.add_argument("--status", help="active|wip|blocked|live|completed")
+    topic.add_argument("--status", help="active|wip|blocked|live|completed|superseded")
+
+    supersede = sub.add_parser(
+        "supersede-entry", help="mark one uniquely matching durable entry as historical"
+    )
+    supersede.add_argument("query", help="case-insensitive unique text fragment")
+    supersede.add_argument("--file", help="optional memory filename to narrow the match")
 
     search = sub.add_parser("search", help="Keyword search core and topic memory files")
     search.add_argument("query")
     search.add_argument("--max-results", type=int, default=20)
+    search.add_argument(
+        "--include-inactive", action="store_true", help="include superseded historical entries"
+    )
 
     sem = sub.add_parser("semsearch", help="Semantic search (local Ollama embeddings)")
     sem.add_argument("query")
@@ -100,6 +110,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sem.add_argument("--min-score", type=float, default=0.20)
     sem.add_argument("--dense", action="store_true", help="Pure dense cosine (skip BM25)")
     sem.add_argument("--rerank", action="store_true", help="LLM rerank top candidates (slow)")
+    sem.add_argument(
+        "--include-inactive", action="store_true", help="include superseded historical entries"
+    )
 
     semindex = sub.add_parser("semindex", help="Build/update the per-project semantic index")
     semindex.add_argument("--rebuild", action="store_true")
@@ -203,17 +216,27 @@ def main() -> int:
     if cmd == "topic":
         add_topic_entry(root, args.name, args.text, status=args.status)
         return 0
+    if cmd == "supersede-entry":
+        return supersede_entry(root, args.query, file_name=args.file)
     if cmd == "archive-topic":
         archive_topic(root, args.slug, force=args.force)
         return 0
     if cmd == "search":
-        search_memory(root, args.query, max_results=args.max_results)
+        search_memory(
+            root,
+            args.query,
+            max_results=args.max_results,
+            include_inactive=args.include_inactive,
+        )
         return 0
     if cmd == "semsearch":
         from agent_memory.features.semantic.command import SearchOpts, cmd_search
 
         return cmd_search(
-            root, args.query, args.k, SearchOpts(args.min_score, args.dense, args.rerank)
+            root,
+            args.query,
+            args.k,
+            SearchOpts(args.min_score, args.dense, args.rerank, args.include_inactive),
         )
     if cmd == "semindex":
         from agent_memory.features.semantic.command import cmd_index

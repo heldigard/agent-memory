@@ -12,8 +12,10 @@ from pathlib import Path
 import agent_memory.features.semantic.hybrid as hybrid_mod
 import agent_memory.features.semantic.index as index_mod
 import agent_memory.features.semantic.search as search_mod
+from agent_memory.features.semantic.command import _filter_inactive_records
 from agent_memory.features.semantic.hybrid import hybrid_search
 from agent_memory.features.semantic.index import build_index
+from agent_memory.features.semantic.search import keyword_fallback
 from agent_memory.features.semantic.search import search as dense_search
 
 
@@ -131,6 +133,43 @@ def test_dense_search_returns_scored_records(tmp_path: Path, monkeypatch) -> Non
     records = dense_search(tmp_path, "auth", k=5, min_score=0.1)
     assert records
     assert all("score" in r for r in records)
+
+
+def test_semantic_output_strips_superseded_lines_but_keeps_current_chunk_text() -> None:
+    records = [
+        {
+            "file": "progress.md",
+            "start": 1,
+            "end": 2,
+            "score": 0.9,
+            "text": (
+                "- 2026-07-08 | status:superseded | Crow is primary\n"
+                "- 2026-07-09 | status:completed | Batiai is primary"
+            ),
+        },
+        {
+            "file": "old.md",
+            "start": 1,
+            "end": 1,
+            "score": 0.8,
+            "text": "- 2026-07-08 | status:superseded | obsolete only",
+        },
+    ]
+    filtered = _filter_inactive_records(records)
+    assert len(filtered) == 1
+    assert "Batiai" in filtered[0]["text"]
+    assert "Crow" not in filtered[0]["text"]
+
+
+def test_keyword_fallback_can_include_inactive_for_historical_audit(tmp_path: Path) -> None:
+    from agent_memory.features.bank.command import add_entry, init_memory
+
+    init_memory(tmp_path)
+    add_entry(tmp_path, "progress", "Crow historical winner", status="superseded")
+    assert keyword_fallback(tmp_path, "Crow", k=5) == []
+    historical = keyword_fallback(tmp_path, "Crow", k=5, include_inactive=True)
+    assert len(historical) == 1
+    assert "Crow historical winner" in historical[0]["text"]
 
 
 def test_hybrid_search_tags_method(tmp_path: Path, monkeypatch) -> None:

@@ -30,7 +30,9 @@ agent-memory read                     # bounded startup context (add --deep for 
 agent-memory read --topic auth-flow   # read one deep-memory topic
 agent-memory add --file progress --text "shipped X" --status completed
 agent-memory topic --name auth-flow --text "..."
-agent-memory search "auth token"      # keyword search core + topic files
+agent-memory search "auth token"      # current keyword results; hides superseded entries
+agent-memory search "auth token" --include-inactive  # historical audit
+agent-memory supersede-entry "old model decision" --file progress.md
 
 # Semantic (local Ollama embeddings; degrades to keyword when daemon down)
 agent-memory semindex                 # build/update the embedding index
@@ -38,6 +40,7 @@ agent-memory semindex --rebuild       # force full re-embed
 agent-memory semstatus                # index health (chunks, dim, staleness)
 agent-memory semclean                 # purge orphan embeddings + compact
 agent-memory semsearch "cross-cli handoff" --min-score 0.25
+agent-memory semsearch "old decision" --include-inactive  # include superseded chunks
 agent-memory semrecall                # SessionStart recall from currentTask.md
 agent-memory semrecall --query "cross-cli handoff" --min-score 0.35  # active re-query
 
