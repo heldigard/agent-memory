@@ -19,7 +19,8 @@ def _make_bank(tmp_path: Path) -> Path:
 def test_format_warning_levels() -> None:
     assert format_warning("f.md", 50, 100) == ""  # under threshold
     assert "YELLOW" in format_warning("f.md", 85, 100)
-    assert "RED" in format_warning("f.md", 100, 100)
+    assert "YELLOW" in format_warning("f.md", 100, 100)
+    assert "RED" in format_warning("f.md", 101, 100)
 
 
 def test_no_warnings_on_empty_bank(tmp_path) -> None:

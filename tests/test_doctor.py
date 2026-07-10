@@ -52,6 +52,18 @@ def test_doctor_flags_broken_ref(tmp_path: Path) -> None:
     assert "ghost" in slugs
 
 
+def test_doctor_accepts_relative_root_ref_and_ignores_code_examples(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    bank = root / ".memory-bank"
+    (bank / "pattern.md").write_text("# Pattern\n", encoding="utf-8")
+    (bank / "MEMORY.md").write_text(
+        "[Pattern](pattern.md)\n`(placeholder.md)`\n[[slug]]\n```md\n[[fenced-example]]\n```\n",
+        encoding="utf-8",
+    )
+    findings = run_doctor(root)
+    assert not [finding for finding in findings if finding.check == "broken-ref"]
+
+
 def test_doctor_flags_dead_pid_active_entry(tmp_path: Path) -> None:
     root = _seed_min(tmp_path)
     # pid 999999 is vanishingly unlikely to be running.

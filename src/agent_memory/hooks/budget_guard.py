@@ -23,7 +23,7 @@ WARN_PCT = 0.80  # 80% threshold for the yellow warning
 def format_warning(fname: str, n: int, limit: int) -> str:
     """Return a YELLOW/RED warning line, or '' if the file is within budget."""
     pct = n / limit
-    if pct >= 1.0:
+    if n > limit:
         return (
             f"  [RED]    {fname}: {n} lines (budget {limit}, {pct:.0%}) — over budget,"
             " archive or split"

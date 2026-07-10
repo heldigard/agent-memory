@@ -116,7 +116,11 @@ def _check_broken_refs(memory: Path) -> list[Finding]:
     broken: dict[str, list[str]] = defaultdict(list)
     for path in referrers:
         for slug in _referenced_slugs(path):
-            if slug in existing_topics:
+            if (
+                slug in existing_topics
+                or (path.parent / f"{slug}.md").is_file()
+                or (memory / f"{slug}.md").is_file()
+            ):
                 continue
             rel = str(path.relative_to(memory))
             if rel not in broken[slug]:
@@ -141,7 +145,9 @@ def _referenced_slugs(path: Path) -> set[str]:
         content = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return set()
-    return set(_WIKI_RE.findall(content)) | set(_PAREN_RE.findall(content))
+    content = re.sub(r"```.*?```", "", content, flags=re.DOTALL)
+    content = re.sub(r"`[^`\n]*`", "", content)
+    return (set(_WIKI_RE.findall(content)) | set(_PAREN_RE.findall(content))) - {"slug"}
 
 
 def _check_dead_pids(memory: Path) -> list[Finding]:
