@@ -180,6 +180,93 @@ def _collect_stale(
     return stale
 
 
+MAX_INJECTED_LINE_CHARS = 500
+MAX_STARTUP_CONTEXT_CHARS = 12_000
+_LINE_ELISION = " …[linea recortada]… "
+_STARTUP_ELISION = "...[startup context recortado por caracteres]"
+
+
+def _compact_injected_line(line: str) -> str:
+    """Bound one injected line without mutating the stored memory source."""
+    if len(line) <= MAX_INJECTED_LINE_CHARS:
+        return line
+    budget = MAX_INJECTED_LINE_CHARS - len(_LINE_ELISION)
+    head = max(1, int(budget * 0.65))
+    tail = budget - head
+    return f"{line[:head]}{_LINE_ELISION}{line[-tail:]}"
+
+
+def _cap_startup_chars(lines: list[str]) -> list[str]:
+    """Keep the highest-priority physical lines under the aggregate char cap."""
+    selected: list[str] = []
+    for line in lines:
+        prospective = "\n".join([*selected, line]) + "\n"
+        if len(prospective) > MAX_STARTUP_CONTEXT_CHARS:
+            break
+        selected.append(line)
+    if len(selected) == len(lines):
+        return selected
+
+    def remove_orphans() -> None:
+        while selected and (selected[-1] == "" or selected[-1].startswith("### ")):
+            selected.pop()
+
+    remove_orphans()
+    while selected:
+        prospective = "\n".join([*selected, _STARTUP_ELISION]) + "\n"
+        if len(prospective) <= MAX_STARTUP_CONTEXT_CHARS:
+            selected.append(_STARTUP_ELISION)
+            break
+        selected.pop()
+        remove_orphans()
+    return selected
+
+
+def _memory_output_lines(
+    memory: Path, per_file_lines: int, total_lines: int
+) -> list[str]:
+    """Build startup output whose physical line count never exceeds the cap."""
+    if total_lines <= 0:
+        return []
+
+    output = [_compact_injected_line(f"## Project Memory Bank: {memory}")]
+    if per_file_lines <= 0:
+        return output[:total_lines]
+
+    order = list(
+        dict.fromkeys([*READ_ORDER[:3], f"{TOPICS_DIR}/_index.md", *READ_ORDER[3:]])
+    )
+    for name in order:
+        path = memory / name
+        if not path.exists():
+            continue
+        lines = filter_lines_for_injection(
+            name, path.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
+        if not lines:
+            continue
+
+        # A useful section needs a blank separator, heading, and one content
+        # line. Never spend the remaining budget on an orphan heading.
+        remaining = total_lines - len(output)
+        if remaining < 3:
+            break
+        available_content = min(per_file_lines, remaining - 2)
+        if available_content <= 0:
+            break
+
+        take = min(len(lines), available_content)
+        include_marker = len(lines) > take and remaining >= 2 + take + 1
+
+        block = ["", f"### {name}"]
+        block.extend(_compact_injected_line(line) for line in lines[:take])
+        if include_marker:
+            block.append(f"... ({len(lines)} total lines)")
+        output.extend(block)
+
+    return _cap_startup_chars(output[:total_lines])
+
+
 def read_memory(
     root: Path,
     per_file_lines: int,
@@ -202,29 +289,9 @@ def read_memory(
             print(f"... ({len(lines)} total lines)")
         return
 
-    emitted = 0
-    print(f"## Project Memory Bank: {memory}")
-    order = list(dict.fromkeys([*READ_ORDER[:3], f"{TOPICS_DIR}/_index.md", *READ_ORDER[3:]]))
-    for name in order:
-        path = memory / name
-        if not path.exists():
-            continue
-        lines = filter_lines_for_injection(
-            name, path.read_text(encoding="utf-8", errors="replace").splitlines()
-        )
-        if not lines:
-            continue
-        remaining = total_lines - emitted
-        if remaining <= 0:
-            break
-        take = max(0, min(per_file_lines, remaining - 2))
-        if take <= 0:
-            break
-        print(f"\n### {name}")
-        print("\n".join(lines[:take]))
-        emitted += take + 2
-        if len(lines) > take:
-            print(f"... ({len(lines)} total lines)")
+    output = _memory_output_lines(memory, per_file_lines, total_lines)
+    if output:
+        print("\n".join(output))
 
 
 def add_entry(

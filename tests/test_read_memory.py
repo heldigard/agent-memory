@@ -29,13 +29,79 @@ class TestReadMemoryBounded:
         assert "line 5" not in out
 
     def test_total_limit(self, bank: Path, capsys) -> None:
-        """Emission stops after ``total_lines``."""
+        """Every physical stdout line, including formatting, fits the limit."""
         for name in ("progress.md", "CONTEXT.md", "activeContext.md"):
             _seed_lines(bank / ".memory-bank" / name, 100)
         read_memory(bank, per_file_lines=20, total_lines=25)
         out = capsys.readouterr().out
-        lines = [ln for ln in out.splitlines() if ln.startswith("line ")]
-        assert len(lines) <= 25
+        assert len(out.splitlines()) <= 25
+
+    def test_physical_total_limit_small_budgets(self, bank: Path, capsys) -> None:
+        _seed_lines(bank / ".memory-bank" / "MEMORY.md", 20)
+        for total in (0, 1, 2, 3, 80):
+            read_memory(bank, per_file_lines=12, total_lines=total)
+            out = capsys.readouterr().out
+            assert len(out.splitlines()) <= total
+            if "### MEMORY.md" in out:
+                lines = out.splitlines()
+                heading = lines.index("### MEMORY.md")
+                assert heading + 1 < len(lines)
+                assert lines[heading + 1].startswith("line ")
+
+    def test_zero_per_file_never_emits_orphan_section(self, bank: Path, capsys) -> None:
+        _seed_lines(bank / ".memory-bank" / "MEMORY.md", 20)
+        read_memory(bank, per_file_lines=0, total_lines=80)
+        out = capsys.readouterr().out
+        assert "### MEMORY.md" not in out
+        assert len(out.splitlines()) <= 80
+
+    def test_long_line_is_bounded_only_in_injected_view(self, bank: Path, capsys) -> None:
+        path = bank / ".memory-bank" / "MEMORY.md"
+        original = "prefix-" + ("x" * 900) + "-important-tail"
+        path.write_text(original + "\n", encoding="utf-8")
+
+        read_memory(bank, per_file_lines=12, total_lines=80)
+        out = capsys.readouterr().out
+
+        injected = next(line for line in out.splitlines() if line.startswith("prefix-"))
+        assert len(injected) <= 500
+        assert "[linea recortada]" in injected
+        assert injected.endswith("-important-tail")
+        assert path.read_text(encoding="utf-8") == original + "\n"
+
+    def test_startup_output_has_aggregate_character_budget(self, bank: Path, capsys) -> None:
+        long_line = "x" * 1000
+        for name in (
+            "MEMORY.md",
+            "CONTEXT.md",
+            "REFERENCE.md",
+            "currentTask.md",
+            "activeContext.md",
+            "progress.md",
+            "systemPatterns.md",
+        ):
+            (bank / ".memory-bank" / name).write_text(
+                "\n".join(f"{index}-{long_line}" for index in range(20)) + "\n",
+                encoding="utf-8",
+            )
+
+        read_memory(bank, per_file_lines=12, total_lines=80)
+        out = capsys.readouterr().out
+
+        assert len(out.splitlines()) <= 80
+        assert len(out) <= 12_000
+        assert "startup context recortado por caracteres" in out
+
+    def test_topic_read_preserves_long_on_demand_evidence(self, bank: Path, capsys) -> None:
+        topic = bank / ".memory-bank" / "topics" / "deep.md"
+        evidence = "prefix-" + ("e" * 900) + "-exact-tail"
+        topic.write_text(evidence + "\n", encoding="utf-8")
+
+        read_memory(bank, per_file_lines=12, total_lines=80, topic="deep", topic_lines=5)
+        out = capsys.readouterr().out
+
+        assert evidence in out
+        assert "linea recortada" not in out
 
     def test_missing_bank(self, tmp_path: Path, capsys) -> None:
         """No output when bank doesn't exist."""
