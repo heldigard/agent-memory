@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from agent_memory.shared.entries import filter_lines_for_injection
+from agent_memory.shared.entries import filter_stale_coordination_lines
 from agent_memory.shared.paths import bank_dir
 
 COORD_BIN = "agent-coordination-status"
@@ -54,7 +54,7 @@ def _local_registry_cleanup(root: Path) -> bool:
         before = registry.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return False
-    after = filter_lines_for_injection("agent-sessions.md", before)
+    after = filter_stale_coordination_lines(before)
     if after == before:
         return False
     registry.write_text("\n".join(after) + "\n", encoding="utf-8")

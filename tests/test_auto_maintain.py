@@ -29,15 +29,50 @@ def test_check_staleness_empty_when_all_fresh(tmp_path) -> None:
     assert check_staleness(tmp_path) == []
 
 
-def test_check_staleness_finds_old_entries(tmp_path) -> None:
+def test_check_staleness_finds_old_unresolved_entry(tmp_path) -> None:
     _seed(tmp_path)
     (tmp_path / ".memory-bank/progress.md").write_text(
-        "# Progress\n\n- 2019-01-01 shipped ancient thing\n",
+        "# Progress\n\n- 2019-01-01 | status:active | investigate ancient issue\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".memory-bank/currentTask.md").write_text(
+        "# Current Task\n\n- 2019-01-01 | status:blocked | waiting on a dependency\n",
         encoding="utf-8",
     )
     stale = check_staleness(tmp_path)
     assert stale
-    assert any("progress.md" in s for s in stale)
+    assert stale == [".memory-bank/currentTask.md"]
+
+
+def test_check_staleness_ignores_historical_and_topic_dates(tmp_path) -> None:
+    _seed(tmp_path)
+    bank = tmp_path / ".memory-bank"
+    (bank / "currentTask.md").write_text(
+        "# Current Task\n\n- 2019-01-01 shipped ancient thing\n",
+        encoding="utf-8",
+    )
+    (bank / "activeContext.md").write_text(
+        "# Active Context\n\n- 2019-01-01 | status:completed | old handoff\n",
+        encoding="utf-8",
+    )
+    (bank / "REFERENCE.md").write_text(
+        "# Reference\n\n- 2019-01-01 | status:live | durable runbook\n",
+        encoding="utf-8",
+    )
+    (bank / "topics" / "archive-example.md").write_text(
+        "# Archive\n\n- 2019-01-01 | status:active | historical snapshot\n",
+        encoding="utf-8",
+    )
+    assert check_staleness(tmp_path) == []
+
+
+def test_check_staleness_reports_malformed_operational_timestamp(tmp_path) -> None:
+    _seed(tmp_path)
+    (tmp_path / ".memory-bank/currentTask.md").write_text(
+        "# Current Task\n\n- not-a-date | status:active | malformed legacy handoff\n",
+        encoding="utf-8",
+    )
+    assert check_staleness(tmp_path) == [".memory-bank/currentTask.md"]
 
 
 def test_check_budgets_returns_empty_for_fresh_bank(tmp_path) -> None:

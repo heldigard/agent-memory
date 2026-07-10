@@ -10,7 +10,6 @@ Absorbed from the ecosystem ``memory-auto-maintain.py`` standalone script.
 
 from __future__ import annotations
 
-import re
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -24,49 +23,65 @@ from agent_memory.shared.config import (
     TOPIC_SOFT_LIMIT,
     TOPICS_DIR,
 )
+from agent_memory.shared.entries import parse_entry
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
 from agent_memory.shared.text import line_count
 
-DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+_OPERATIONAL_STATE_FILES = (
+    "currentTask.md",
+    "activeContext.md",
+    "agent-sessions.md",
+)
+_STALE_OPERATIONAL_STATUSES = frozenset({"active", "wip", "blocked"})
 
 
-def _parse_entry_date(line: str) -> datetime | None:
-    """First YYYY-MM-DD anywhere in ``line`` as UTC datetime, or None.
-
-    Not anchored: real entries are ``- YYYY-MM-DD | status:...`` (list-item
-    form). Mirrors the un-anchored regex used by ``bank/command._report_staleness``
-    so both staleness paths agree on which lines are stale."""
-    m = DATE_RE.search(line)
-    if not m:
+def _parse_entry_timestamp(value: str | None) -> datetime | None:
+    """Parse a structured entry timestamp, returning ``None`` when invalid."""
+    if not value:
         return None
     try:
-        return datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=UTC)
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     except ValueError:
         return None
 
 
 def _file_has_stale_entry(path: Path, cutoff: datetime) -> bool:
-    """True if ``path`` has any date-prefixed entry older than ``cutoff``."""
+    """True only for an old unresolved structured entry in ``path``.
+
+    Session-start maintenance is an operational signal, not a historical audit:
+    stable references, completed work, archives, and legacy date-only prose
+    remain searchable but must not make every session look stale.
+    """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
     for line in text.splitlines():
-        d = _parse_entry_date(line)
-        if d is not None and d < cutoff:
+        entry = parse_entry(line)
+        if entry["status"] not in _STALE_OPERATIONAL_STATUSES:
+            continue
+        timestamp = _parse_entry_timestamp(entry["ts"])
+        if timestamp is None or timestamp < cutoff:
             return True
     return False
 
 
 def check_staleness(root: Path) -> list[str]:
-    """Files (relative path) containing entries older than ``STALENESS_DAYS``."""
+    """Mutable state files with old unresolved operational entries.
+
+    Deliberately skips reference/topic/archive files: their dates describe
+    durable history, not work that needs attention at SessionStart.
+    """
     mb = bank_dir(root)
     if not mb.is_dir():
         return []
     cutoff = datetime.now(UTC) - timedelta(days=STALENESS_DAYS)
     stale: list[str] = []
-    for fpath in iter_memory_files(mb):
+    for name in _OPERATIONAL_STATE_FILES:
+        fpath = mb / name
+        if not fpath.is_file():
+            continue
         if _file_has_stale_entry(fpath, cutoff):
             stale.append(str(fpath.relative_to(root)))
     return stale

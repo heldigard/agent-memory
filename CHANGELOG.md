@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Session-start staleness now reports only old unresolved operational entries
+  in mutable core state, avoiding false warnings from durable references,
+  topics, and archives. Startup injection also hides explicitly inactive
+  statuses while preserving their opt-in search visibility.
+
 All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).

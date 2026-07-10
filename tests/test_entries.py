@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from agent_memory.features.entries.command import (
+    filter_lines_for_injection,
     is_duplicate,
     is_protected_from_archive,
     is_stale_for_injection,
@@ -58,6 +59,12 @@ def test_parse_non_entry_line() -> None:
     assert info["text"] == "## Heading or prose"
 
 
+def test_parse_malformed_timestamp_keeps_structured_status() -> None:
+    info = parse_entry("- not-a-date | status:active | malformed handoff")
+    assert info["ts"] is None
+    assert info["status"] == "active"
+
+
 def test_parse_live_status_never_archived() -> None:
     assert is_protected_from_archive("- 2026-06-28T00:00:00Z | status:live | runbook")
 
@@ -74,6 +81,29 @@ def test_parse_pid_session_dead_process_not_stale_until_pid_check() -> None:
     # pid 999999 almost certainly not alive -> a stale active line with a dead pid is filtered.
     line = "- 2026-06-28T00:00:00Z | status:active | session:pid:999999 | old handoff"
     assert is_stale_for_injection(line)
+
+
+def test_stale_blocked_and_malformed_active_entries_are_not_injected() -> None:
+    old_blocked = "- 2019-01-01T00:00:00Z | status:blocked | old blocker"
+    malformed_active = "- not-a-date | status:active | malformed handoff"
+    assert is_stale_for_injection(old_blocked)
+    assert is_stale_for_injection(malformed_active)
+
+
+def test_filter_injection_hides_inactive_statuses_but_keeps_progress() -> None:
+    lines = [
+        "# Context",
+        "- 2026-07-10T12:00:00Z | status:completed | shipped safely",
+        "- 2026-07-10T12:00:00Z | status:superseded | old model choice",
+        "- 2026-07-10T12:00:00Z | status:archived | historic trace",
+        "- 2026-07-10T12:00:00Z | status:active | current objective",
+    ]
+    visible = filter_lines_for_injection("activeContext.md", lines)
+    assert visible == [
+        "# Context",
+        "- 2026-07-10T12:00:00Z | status:completed | shipped safely",
+        "- 2026-07-10T12:00:00Z | status:active | current objective",
+    ]
 
 
 def test_validate_status_lowercases_and_accepts_valid() -> None:

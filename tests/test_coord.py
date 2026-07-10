@@ -84,6 +84,8 @@ def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
         f"heartbeat:{now}\n"
         f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
         f"heartbeat:{now}\n\n"
+        f"- {now} | status:superseded | agent:codex | pid:sid-historical | branch:main | "
+        f"task:\"historical\" | heartbeat:{now}\n\n"
         "## Recently Ended\n",
         encoding="utf-8",
     )
@@ -93,6 +95,7 @@ def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
     assert "current" in body
     assert "old" not in body
     assert "None." not in body
+    assert "historical" in body
 
 
 def test_coord_cleanup_runs_broker_cleanup_when_available(

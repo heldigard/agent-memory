@@ -52,7 +52,17 @@ def parse_entry(line: str) -> dict[str, str | None]:
     different status compare equal (for dedup)."""
     m = _ENTRY_TS_RE.match(line)
     if not m:
-        return {"ts": None, "status": None, "session": None, "text": line.strip()}
+        # Keep structured status/session metadata even when a legacy writer
+        # emitted a malformed timestamp. Visibility guards can then fail closed
+        # without rewriting the durable line or mistaking it for plain prose.
+        sm = _STATUS_SEG_RE.search(line)
+        sem = _SESSION_SEG_RE.search(line)
+        return {
+            "ts": None,
+            "status": sm.group(1).lower() if sm else None,
+            "session": sem.group(1) if sem else None,
+            "text": line.strip(),
+        }
     date_part, time_part = m.group(1), m.group(2) or "00:00:00"
     ts = f"{date_part}T{time_part}Z"
     sm = _STATUS_SEG_RE.search(line)
@@ -225,8 +235,10 @@ def is_stale_for_injection(line: str) -> bool:
     Does NOT change archive behavior: old/dead active entries are preserved in
     files but kept out of startup context where they could misdirect."""
     info = parse_entry(line)
-    if info["status"] not in {"active", "wip"}:
+    if info["status"] not in {"active", "wip", "blocked"}:
         return False
+    if info["ts"] is None:
+        return True
     pid = _session_pid(info["session"])
     if pid is not None and not _pid_is_alive(pid):
         return True
@@ -234,22 +246,36 @@ def is_stale_for_injection(line: str) -> bool:
     return age is not None and age > injection_window_hours()
 
 
-def filter_lines_for_injection(_name: str, lines: list[str]) -> list[str]:
-    """Drop stale active/wip entries from memory reads without mutating files.
+def filter_stale_coordination_lines(lines: list[str]) -> list[str]:
+    """Remove only stale registry records for an on-disk coordination cleanup.
 
-    The ``_name`` arg is accepted for call-site symmetry with file-aware
-    helpers but is not currently used to decide filtering."""
+    Unlike prompt injection, this function is allowed to be used by the local
+    registry cleanup. It intentionally leaves historical statuses untouched so
+    cleanup never turns a visibility policy into irreversible data loss.
+    """
+    return [line for line in lines if not is_stale_coordination_line(line)]
+
+
+def filter_lines_for_injection(_name: str, lines: list[str]) -> list[str]:
+    """Drop historical or stale entries from memory reads without mutation.
+
+    Explicitly inactive facts remain available to opt-in search, but an
+    automatically loaded prompt should contain only information that can still
+    guide the current controller turn. Recent ``completed`` entries retain
+    their established visibility as useful progress evidence.
+    """
     if os.environ.get("MEMORY_FILTER_STALE_ACTIVE", "1") == "0":
         return lines
+    visible = [line for line in lines if not is_inactive_search_line(line)]
     if _name == "agent-sessions.md":
-        return [line for line in lines if not is_stale_coordination_line(line)]
+        return filter_stale_coordination_lines(visible)
     if _name == f"{TOPICS_DIR}/_index.md":
         return [
             line
-            for line in lines
+            for line in visible
             if not any(f"({slug}.md)" in line for slug in OPERATIONAL_TOPIC_SLUGS)
         ]
-    return [line for line in lines if not is_stale_for_injection(line)]
+    return [line for line in visible if not is_stale_for_injection(line)]
 
 
 def is_protected_from_archive(line: str) -> bool:
