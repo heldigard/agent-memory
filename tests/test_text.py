@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from agent_memory.shared.text import (
+    atomic_write_text,
     ensure_safe_text,
     line_count,
     slugify,
@@ -133,3 +134,52 @@ class TestLineCount:
 
     def test_missing_file_returns_zero(self, tmp_path: Path) -> None:
         assert line_count(tmp_path / "nope.md") == 0
+
+
+class TestAtomicWriteText:
+    """atomic_write_text must leave either the old or the new file, never a
+    truncated/partial one — that is the corruption fix for the markdown banks."""
+
+    def test_writes_new_file(self, tmp_path: Path) -> None:
+        target = tmp_path / "f.md"
+        atomic_write_text(target, "body\n")
+        assert target.read_text() == "body\n"
+
+    def test_overwrites_existing(self, tmp_path: Path) -> None:
+        target = tmp_path / "f.md"
+        target.write_text("old", encoding="utf-8")
+        atomic_write_text(target, "new")
+        assert target.read_text() == "new"
+
+    def test_no_tmp_residue_on_success(self, tmp_path: Path) -> None:
+        target = tmp_path / "f.md"
+        atomic_write_text(target, "x")
+        assert not list(tmp_path.glob(".*.tmp"))
+
+    def test_target_untouched_if_replace_fails(self, tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        # The atomicity guarantee: if os.replace raises (simulated crash), the
+        # target keeps its prior content and the tmp is cleaned — no truncation.
+        target = tmp_path / "f.md"
+        target.write_text("original", encoding="utf-8")
+
+        def boom(_src: str, _dst: str) -> None:
+            raise OSError("simulated mid-replace failure")
+
+        monkeypatch.setattr("agent_memory.shared.text.os.replace", boom)
+        with pytest.raises(OSError):
+            atomic_write_text(target, "new-content")
+        assert target.read_text() == "original"
+        assert not list(tmp_path.glob(".*.tmp"))
+
+    def test_creates_parent_dirs(self, tmp_path: Path) -> None:
+        target = tmp_path / "sub" / "deep" / "f.md"
+        atomic_write_text(target, "x")
+        assert target.read_text() == "x"
+
+    def test_repeated_writes_no_tmp_leak(self, tmp_path: Path) -> None:
+        # Two writes to the same target (unique tmp per call) leave no litter.
+        target = tmp_path / "f.md"
+        atomic_write_text(target, "a")
+        atomic_write_text(target, "b")
+        assert target.read_text() == "b"
+        assert not list(tmp_path.glob(".*.tmp"))

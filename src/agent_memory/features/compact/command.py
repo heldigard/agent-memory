@@ -14,6 +14,7 @@ from pathlib import Path
 from agent_memory.shared.config import FILES, TOPIC_SOFT_LIMIT, TOPICS_DIR
 from agent_memory.shared.entries import is_protected_from_archive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
+from agent_memory.shared.text import atomic_write_text
 
 
 def archive_old_lines(path: Path, lines: list[str], max_lines: int) -> list[str]:
@@ -61,11 +62,12 @@ def _write_archive(path: Path, archivable: list[str], protected_count: int) -> N
     content = f"# {path.stem} Archive\n> Archived on {date.today().isoformat()}{note}\n\n"
     content += "\n".join(archivable) + "\n"
     if archive_path.exists():
-        archive_path.write_text(
-            archive_path.read_text(encoding="utf-8") + content, encoding="utf-8"
+        atomic_write_text(
+            archive_path,
+            archive_path.read_text(encoding="utf-8") + content,
         )
     else:
-        archive_path.write_text(content, encoding="utf-8")
+        atomic_write_text(archive_path, content)
 
 
 def compact_file(path: Path, max_lines: int) -> bool:
@@ -76,7 +78,7 @@ def compact_file(path: Path, max_lines: int) -> bool:
     if len(lines) <= max_lines:
         return False
     compacted = archive_old_lines(path, lines, max_lines)
-    path.write_text("\n".join(compacted) + "\n", encoding="utf-8")
+    atomic_write_text(path, "\n".join(compacted) + "\n")
     return True
 
 
@@ -141,7 +143,7 @@ def _remove_topic_from_index(index_path: Path, slug: str) -> bool:
     kept = [ln for ln in lines if marker not in ln]
     if len(kept) == len(lines):
         return False
-    index_path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    atomic_write_text(index_path, "\n".join(kept) + "\n")
     return True
 
 
@@ -175,12 +177,12 @@ def archive_topic(root: Path, slug: str, *, force: bool = False) -> None:
     dst = archive_dir / f"{slug}-{date.today().isoformat()}.md"
     body = src.read_text(encoding="utf-8", errors="replace")
     if dst.exists():
-        dst.write_text(
+        atomic_write_text(
+            dst,
             dst.read_text(encoding="utf-8", errors="replace") + "\n\n---\n\n" + body,
-            encoding="utf-8",
         )
     else:
-        dst.write_text(body, encoding="utf-8")
+        atomic_write_text(dst, body)
     src.unlink()
     removed = _remove_topic_from_index(topics / "_index.md", slug)
     print(f"Archived topic: {slug}.md -> topics/archive/{dst.name}")

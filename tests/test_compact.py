@@ -44,3 +44,17 @@ def test_compact_memory_runs_over_all_core_files(tmp_path) -> None:
         "# progress\n" + "\n".join(f"- 2026-01-01 e{i}" for i in range(50)) + "\n", encoding="utf-8"
     )
     compact_memory(tmp_path)  # should not raise; prints a summary line
+
+
+def test_compact_file_leaves_no_tmp_residue(tmp_path) -> None:
+    # Atomic write: compaction must not leave a stale .tmp staging file behind.
+    # Guards the corruption fix for the shared markdown banks.
+    p = tmp_path / "dead-ends.md"
+    p.write_text(
+        "# dead-ends\n" + "\n".join(f"- 2026-01-01 entry {i}" for i in range(20)) + "\n",
+        encoding="utf-8",
+    )
+    assert compact_file(p, 5)
+    assert not list(tmp_path.glob(".*.tmp")), "atomic write left a staging tmp behind"
+    # content is still valid utf-8 and reduced
+    assert p.read_text(encoding="utf-8").startswith("# dead-ends")

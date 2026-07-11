@@ -15,6 +15,7 @@ from pathlib import Path
 
 from agent_memory.shared.entries import filter_stale_coordination_lines
 from agent_memory.shared.paths import bank_dir
+from agent_memory.shared.text import atomic_write_text
 
 COORD_BIN = "agent-coordination-status"
 ORCH_SCRIPT = Path.home() / ".claude" / "scripts" / "cli-orchestration.py"
@@ -57,7 +58,7 @@ def _local_registry_cleanup(root: Path) -> bool:
     after = filter_stale_coordination_lines(before)
     if after == before:
         return False
-    registry.write_text("\n".join(after) + "\n", encoding="utf-8")
+    atomic_write_text(registry, "\n".join(after) + "\n")
     return True
 
 
