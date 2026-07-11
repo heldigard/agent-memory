@@ -91,18 +91,19 @@ def test_stale_blocked_and_malformed_active_entries_are_not_injected() -> None:
 
 
 def test_filter_injection_hides_inactive_statuses_but_keeps_progress() -> None:
+    current = now_iso()
     lines = [
         "# Context",
-        "- 2026-07-10T12:00:00Z | status:completed | shipped safely",
-        "- 2026-07-10T12:00:00Z | status:superseded | old model choice",
-        "- 2026-07-10T12:00:00Z | status:archived | historic trace",
-        "- 2026-07-10T12:00:00Z | status:active | current objective",
+        f"- {current} | status:completed | shipped safely",
+        f"- {current} | status:superseded | old model choice",
+        f"- {current} | status:archived | historic trace",
+        f"- {current} | status:active | current objective",
     ]
     visible = filter_lines_for_injection("activeContext.md", lines)
     assert visible == [
         "# Context",
-        "- 2026-07-10T12:00:00Z | status:completed | shipped safely",
-        "- 2026-07-10T12:00:00Z | status:active | current objective",
+        f"- {current} | status:completed | shipped safely",
+        f"- {current} | status:active | current objective",
     ]
 
 

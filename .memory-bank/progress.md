@@ -1,5 +1,8 @@
 # Progress
 
+- 2026-07-11T20:12:00Z | status:completed | Cierre de sesión de hoy: limpieza de rastro temporal y actualización del control de handoff para permitir commit/push limpio en proyectos relacionados.
+
+
 - 2026-07-05T01:17:34Z | status:completed | Shipped: Memory System v5 → heldigard/agent-memory. Vertical-slice (8 features: bank/entries/compact/search/semantic/graph/maintain/coord). Backcompat: ~/.local/bin/project-memory symlink + ~/.claude/scripts/project-memory.py shim (19 lines, __name__-guarded).
 - 2026-07-05T01:27:26Z | status:completed | Review pass: doc-drift (nomic→embeddinggemma), ruff+mypy clean (32 files 0 issues), 45 tests. Semántico verificado con Ollama real (semindex/semsearch/semrecall rankean auth-flow). Cross-cli: 4 skill symlinks (Claude/Codex/OpenCode/Gemini) + Gemini memory-inject symlink.
 - 2026-07-05T16:50:40Z | status:completed | Full audit: 1 real bug fixed (maintain/auto._parse_entry_date: anchored DATE_RE never matched list-item entries `- YYYY-MM-DD ...`; switched to `\b...\b` + re.search, mirroring bank/command._report_staleness). Dead code removed (graph split_csv re-export; semantic/recall UNCHECKED_TASK_RE). Stale docstring. +7 tests → 131 total. Coverage 80%.
