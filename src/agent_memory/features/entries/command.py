@@ -25,6 +25,7 @@ from agent_memory.shared.entries import (  # noqa: F401
     validate_status,
 )
 from agent_memory.shared.paths import bank_dir, iter_memory_files
+from agent_memory.shared.text import atomic_write_text
 
 
 def add_entry(root: Path, text: str, status: str | None = None) -> None:
@@ -78,6 +79,6 @@ def supersede_entry(root: Path, query: str, file_name: str | None = None) -> int
         return 2
     path, index, lines = matches[0]
     lines[index] = _with_superseded_status(lines[index])
-    path.write_text("".join(lines), encoding="utf-8")
+    atomic_write_text(path, "".join(lines))
     print(f"Superseded: {path.relative_to(memory)}:{index + 1}")
     return 0

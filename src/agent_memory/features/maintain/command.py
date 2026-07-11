@@ -29,6 +29,7 @@ from agent_memory.shared.ollama import generate as ollama_generate
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir
 from agent_memory.shared.task_lines import is_active_task_line
+from agent_memory.shared.text import atomic_write_text
 
 
 @dataclass
@@ -198,7 +199,7 @@ def _archive_with_summary(
     # GROW. Guard exactly like compact.archive_old_lines: empty tail when no budget.
     tail = lines[-tail_count:] if tail_count > 0 else []
     compacted = [*header, note, *tail]
-    path.write_text("\n".join(compacted) + "\n", encoding="utf-8")
+    atomic_write_text(path, "\n".join(compacted) + "\n")
     print(f"  Compacted-with-summary {path.name}: archived {len(middle)} lines")
     return True
 
@@ -215,9 +216,9 @@ def _write_summary_archive(path: Path, middle: list[str], summary: str) -> None:
         f"{summary}\n\n--- full archived block below ---\n\n" + "\n".join(middle) + "\n"
     )
     if archive_path.exists():
-        archive_path.write_text(archive_path.read_text(encoding="utf-8") + block, encoding="utf-8")
+        atomic_write_text(archive_path, archive_path.read_text(encoding="utf-8") + block)
     else:
-        archive_path.write_text(block, encoding="utf-8")
+        atomic_write_text(archive_path, block)
 
 
 def _emit_audit(ctx: MaintCtx, name: str, lines: list[str]) -> None:
@@ -306,7 +307,7 @@ def maintain(
         ctx.report.append("")
     body = "\n".join(ctx.report) + "\n"
     if output:
-        Path(output).write_text(body, encoding="utf-8")
+        atomic_write_text(Path(output), body)
         print(f"Audit report written to {output}", file=sys.stderr)
     print(body)
 

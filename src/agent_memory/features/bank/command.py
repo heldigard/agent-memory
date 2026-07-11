@@ -23,7 +23,7 @@ from agent_memory.shared.entries import (
     validate_status,
 )
 from agent_memory.shared.paths import bank_dir, file_name
-from agent_memory.shared.text import ensure_safe_text, write_if_missing
+from agent_memory.shared.text import atomic_write_text, ensure_safe_text, write_if_missing
 
 
 def init_memory(root: Path) -> None:
@@ -222,9 +222,7 @@ def _cap_startup_chars(lines: list[str]) -> list[str]:
     return selected
 
 
-def _memory_output_lines(
-    memory: Path, per_file_lines: int, total_lines: int
-) -> list[str]:
+def _memory_output_lines(memory: Path, per_file_lines: int, total_lines: int) -> list[str]:
     """Build startup output whose physical line count never exceeds the cap."""
     if total_lines <= 0:
         return []
@@ -233,9 +231,7 @@ def _memory_output_lines(
     if per_file_lines <= 0:
         return output[:total_lines]
 
-    order = list(
-        dict.fromkeys([*READ_ORDER[:3], f"{TOPICS_DIR}/_index.md", *READ_ORDER[3:]])
-    )
+    order = list(dict.fromkeys([*READ_ORDER[:3], f"{TOPICS_DIR}/_index.md", *READ_ORDER[3:]]))
     for name in order:
         path = memory / name
         if not path.exists():
@@ -308,7 +304,7 @@ def add_entry(
     memory.mkdir(parents=True, exist_ok=True)
     path = memory / file_name(target)
     if not path.exists():
-        path.write_text(f"# {path.stem}\n", encoding="utf-8")
+        atomic_write_text(path, f"# {path.stem}\n")
     if is_duplicate(path, text):
         print(f"Skipped duplicate in {path}")
         return
@@ -331,9 +327,9 @@ def update_topic_index(memory: Path, slug: str, title: str) -> None:
     topics.mkdir(parents=True, exist_ok=True)
     index = topics / "_index.md"
     if not index.exists():
-        index.write_text(
+        atomic_write_text(
+            index,
             "# Topic Index\n> Deep project memory. Search/read on demand.\n\n## Topics\n",
-            encoding="utf-8",
         )
     content = index.read_text(encoding="utf-8", errors="replace")
     if f"({slug}.md)" not in content:
@@ -349,9 +345,9 @@ def add_topic_entry(root: Path, topic: str, text: str, status: str | None = None
     (memory / TOPICS_DIR).mkdir(parents=True, exist_ok=True)
     path = topic_path(root, topic)
     if not path.exists():
-        path.write_text(
+        atomic_write_text(
+            path,
             f"# {topic.strip()}\n> Deep memory topic. Read on demand; keep entries factual.\n\n",
-            encoding="utf-8",
         )
     header = f"\n## {now_iso()}"
     if status:

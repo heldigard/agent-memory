@@ -1,5 +1,6 @@
 # Progress
 
+- 2026-07-11T22:45:00Z | status:completed | Extended atomic_write_text to EVERY remaining full-file rewrite in features/: maintain apply-safe (compaction + summary-archive + -o report), bank (init create-new + topics/_index.md + topic create-new), and entries supersede-entry RMW. Closes the consistency gap left by the first atomic-write commit (which only covered compact/coord). Verified: 187 pytest, ruff+mypy clean, e2e smoke (add/topic/supersede/compact+archive) — 0 tmp residue, files intact, status:superseded applied. Only remaining plain write_text are semantic/index.py writes over .tmp staging files (part of its own os.replace atomic save).
 - 2026-07-11T20:12:00Z | status:completed | Cierre de sesión de hoy: limpieza de rastro temporal y actualización del control de handoff para permitir commit/push limpio en proyectos relacionados.
 
 
