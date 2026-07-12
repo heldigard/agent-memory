@@ -181,3 +181,19 @@ def test_doctor_graph_malformed_and_dangling_supersedes_warn(tmp_path: Path) -> 
     assert any("malformed" in f.detail for f in findings), findings
     assert any("g_999" in f.detail for f in findings), findings
     assert all(f.severity == "warn" for f in findings), findings
+
+
+def test_doctor_graph_reports_schema_and_normalized_metadata(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    graph = root / ".memory-bank" / "decisions.graph.jsonl"
+    graph.write_text(
+        '{"id":"g_001","s":"A","p":"OWNS","o":"B","aliases":"bad"}\n'
+        '{"id":"g_002","s":"A","p":"OWNS"}\n'
+        "null\n",
+        encoding="utf-8",
+    )
+
+    findings = [finding for finding in run_doctor(root) if finding.check == "graph"]
+
+    assert any("2 invalid-schema line(s) skipped" in finding.detail for finding in findings)
+    assert any("1 invalid metadata field(s) normalized" in finding.detail for finding in findings)

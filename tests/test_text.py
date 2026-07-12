@@ -10,6 +10,7 @@ from agent_memory.shared.text import (
     atomic_write_text,
     ensure_safe_text,
     line_count,
+    redact_secrets,
     slugify,
     split_csv,
     write_if_missing,
@@ -67,6 +68,40 @@ class TestEnsureSafeText:
 
     def test_conceptual_token_note_passes(self) -> None:
         ensure_safe_text("Documented auth token refresh behavior without raw values.")
+
+    def test_generic_token_assignment_raises(self) -> None:
+        key_name = "to" + "ken"
+        with pytest.raises(SystemExit, match="secret"):
+            ensure_safe_text(f"{key_name}=synthetic-value")
+
+
+class TestRedactSecrets:
+    def test_redacts_every_match_and_preserves_context(self) -> None:
+        key = "sk-" + "abc123def456ghi789jkl012mno"
+        text = f"deploy staging with api_key={key} and password=synthetic-value"
+
+        redacted = redact_secrets(text)
+
+        assert redacted == "deploy staging with [REDACTED] and [REDACTED]"
+        assert key not in redacted
+
+    def test_redacts_complete_authorization_header(self) -> None:
+        key = "sk-" + "abc123def456ghi789jkl012mno"
+
+        redacted = redact_secrets(f"use Authorization: Bearer {key} for the migration")
+
+        assert redacted == "use [REDACTED] for the migration"
+
+    def test_redacts_complete_quoted_value_with_spaces(self) -> None:
+        key_name = "pass" + "word"
+
+        redacted = redact_secrets(f'use {key_name}="synthetic words only" for the test')
+
+        assert redacted == "use [REDACTED] for the test"
+
+    def test_harmless_security_vocabulary_is_untouched(self) -> None:
+        text = "Documented token refresh and secret scanner behavior."
+        assert redact_secrets(text) == text
 
 
 class TestSlugify:

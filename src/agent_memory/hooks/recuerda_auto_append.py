@@ -15,6 +15,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from agent_memory.shared.text import redact_secrets
+
 TRIGGERS: list[str] = [
     r"\brecuerd[ae]\b",  # recuerda, recordá
     r"\bremember\b",  # English
@@ -74,6 +76,14 @@ def main() -> int:
 
     # Collapse whitespace/newlines so a pasted multi-line dump becomes ONE bounded line.
     note = re.sub(r"\s+", " ", note).strip()
+
+    # Automatic capture keeps useful context but must never bypass the secret
+    # rejection applied to explicit CLI writes. Redact before truncation so a
+    # long credential cannot survive as a partial value.
+    note = redact_secrets(note)
+    useful_note = note.replace("[REDACTED]", "").strip(" :,-.\n\t")
+    if len(useful_note) < 5:
+        return 0
 
     # Cap length: a recuerda note is short.
     MAX_NOTE = 300

@@ -1,5 +1,18 @@
 # Active Context
 
+## 2026-07-12 Handoff
+
+### Active Task
+- Completed locally: automatic-hook secret redaction and shared graph schema diagnostics.
+
+### Validation
+- 206 tests pass at 83% coverage; Ruff, format, Mypy, vertical-slice guard, wheel/sdist build,
+  Semgrep, gitleaks, vulture, CLI smoke, and doctor JSON validation all pass.
+
+### Next Steps
+- Review/commit the current working tree when desired; no branch, commit, push, PR, or release was
+  created by this autonomous pass.
+
 ## 2026-07-11 Handoff
 
 ### Active Task

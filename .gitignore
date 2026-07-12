@@ -35,8 +35,7 @@ htmlcov/
 .memory-bank/topics/agent-sessions*
 .claude/
 
-# cli-orchestration: cross-CLI coordination runtime noise (auto-managed;
-# agent-sessions* already covered above)
+# cli-orchestration: cross-CLI coordination runtime noise (auto-managed)
 .memory-bank/blocked-writes.log
 .memory-bank/control-plane/
 

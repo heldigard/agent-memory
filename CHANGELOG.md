@@ -1,12 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Session-start staleness now reports only old unresolved operational entries
-  in mutable core state, avoiding false warnings from durable references,
-  topics, and archives. Startup injection also hides explicitly inactive
-  statuses while preserving their opt-in search visibility.
-
 All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -14,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Automatic remember/decision hooks now redact credential-shaped values through the canonical
+  memory-safety policy instead of bypassing explicit-write safeguards or maintaining a weaker,
+  duplicated detector.
+- Decision-graph reads now skip invalid core JSONL records and normalize invalid optional metadata
+  without losing healthy facts; `doctor` reports syntax, schema, duplicate-ID, and dangling-reference
+  problems from the same shared parser.
+- Graph supersede rewrites are atomic, so interruption cannot truncate the durable decision graph.
+- Session-start staleness now reports only old unresolved operational entries in mutable core state,
+  avoiding false warnings from durable references, topics, and archives. Startup injection also
+  hides explicitly inactive statuses while preserving their opt-in search visibility.
 - `_archive_with_summary` no longer grows a file when `tail_count == 0`
   (`lines[-0:]` slicing gotcha). Mirrors the guard already in `compact.archive_old_lines`.
 - `build_index` is now serialized via `fcntl.flock` on `.index/.build.lock` so two
@@ -24,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `agent-memory doctor` command — proactive health check (over-budget files, broken
-  `[[slug]]`/`(slug.md)` topic refs, dead-PID active entries, index shape/orphan/collision
-  checks). `--json` emits machine-readable findings; exit 1 on errors.
+  `[[slug]]`/`(slug.md)` topic refs, dead-PID active entries, index shape/orphan/collision,
+  and decision-graph integrity checks). `--json` emits machine-readable findings; exit 1 on errors.
 - `agent-memory status --json` — bank snapshot for hooks/quota tooling (parity with
   `auto-maintain-check --json`). Backed by a new `status_data()` so the human and JSON
   outputs never drift.

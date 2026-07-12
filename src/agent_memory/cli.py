@@ -137,7 +137,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     doc = sub.add_parser(
         "doctor",
-        help="Health check: budgets, broken refs, dead PIDs, index consistency",
+        help="Health check: budgets, refs, PIDs, index and graph consistency",
     )
     doc.add_argument("--json", action="store_true", help="Emit findings as JSON")
 

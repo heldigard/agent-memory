@@ -37,9 +37,10 @@ See `README.md` for the user-facing overview.
 - `graph` — `(s,p,o)` triple store + join queries
 - `maintain` — LLM-assisted audit (propose-only) + `--apply-safe` additive compaction
 - `coord` — bridge to `agent-coordination-status` (sibling project)
+- `doctor` — read-only bank, index, coordination, and decision-graph diagnostics
 - `hooks/` — Stop/PostToolUse hooks (`decision_tracker`, `recuerda_auto_append`, `budget_guard`) wired into the harness
 
-Cross-feature infra in `shared/` (`paths`, `entries`, `ollama`, `text`, `config`, `task_lines`).
+Cross-feature infra in `shared/` (`paths`, `entries`, `graph`, `ollama`, `text`, `config`, `task_lines`).
 
 CLI + skills, **not** MCP: the index spends context only when called.
 

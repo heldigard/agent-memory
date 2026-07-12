@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 
 from agent_memory.shared.config import GRAPH_FILE, GRAPH_PREDICATES
+from agent_memory.shared.graph import parse_graph_lines
 from agent_memory.shared.paths import bank_dir
 from agent_memory.shared.text import atomic_write_text, ensure_safe_text
 
@@ -23,17 +24,20 @@ def graph_path(root: Path) -> Path:
 
 
 def _graph_load(path: Path) -> list[dict]:
-    rows: list[dict] = []
     if not path.exists():
-        return rows
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        try:
-            rows.append(json.loads(line))
-        except json.JSONDecodeError:
-            print(f"warn: skipping malformed graph line: {line[:80]}", file=sys.stderr)
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        print(f"warn: unable to read graph file: {exc}", file=sys.stderr)
+        return []
+    rows, issues = parse_graph_lines(lines)
+    for issue in issues:
+        verb = "skipping" if issue.action == "skipped" else "normalizing"
+        print(
+            f"warn: {verb} graph line {issue.line_number}: {issue.reason}",
+            file=sys.stderr,
+        )
     return rows
 
 

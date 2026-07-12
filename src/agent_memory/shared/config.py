@@ -66,10 +66,10 @@ FILE_ALIASES: dict[str, str] = {
 # remain writable as long as they do not include a credential value.
 SECRET_RE = re.compile(
     r"("
-    r"\b(?:api[ _-]?key|access[ _-]?token|refresh[ _-]?token|auth[ _-]?token|"
-    r"client[ _-]?secret|private[ _-]?key|password|passwd|authorization)\b\s*[:=]\s*\S+"
-    r"|\bsecret\s*=\s*\S+"
-    r"|\bauthorization\s*:\s*bearer\s+\S+"
+    r"\bauthorization\b\s*[:=]\s*(?:bearer\s+)?(?:\"[^\"\r\n]+\"|'[^'\r\n]+'|\S+)"
+    r"|\b(?:api[ _-]?key|access[ _-]?token|refresh[ _-]?token|auth[ _-]?token|token|secret|"
+    r"client[ _-]?secret|private[ _-]?key|password|passwd)\b\s*[:=]\s*"
+    r"(?:\"[^\"\r\n]+\"|'[^'\r\n]+'|\S+)"
     r"|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}"
     r"|\bBEGIN [A-Z ]*PRIVATE KEY\b"
     r"|\bsk-[A-Za-z0-9_-]{20,}\b"

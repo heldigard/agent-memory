@@ -1,17 +1,20 @@
 # Current Task
-> Updated: 2026-07-11
+> Updated: 2026-07-12
 
 ## Goal
-- None.
+- Harden automatic memory ingestion and decision-graph corruption handling.
 
 ## Scope
-- Cierre de ruido de sesión y entrega de estado operativo.
+- Canonical secret redaction for automatic hooks; shared graph JSONL schema validation; doctor and
+  documentation parity.
 
 ## Acceptance Criteria
-- Ver progreso consolidado en `progress.md` y confirmación de push en remoto.
+- Hooks never persist matched credential values.
+- Mixed valid/corrupt graph files degrade gracefully and remain diagnosable.
+- Full tests, type/lint/format, package build, architecture guard, and security sensors pass.
 
 ## Related
-- n/a
+- `docs/plans/2026-07-12-001-fix-memory-ingestion-integrity-plan.md`
 
 ## Status
-- [x] 2026-07-11: Memory-bank de handoff actualizado, sin tareas activas.
+- [x] 2026-07-12: Completed locally; 206 tests pass, 83% coverage, no sensor findings.

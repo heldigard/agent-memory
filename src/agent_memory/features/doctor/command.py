@@ -12,8 +12,8 @@ Surfaces, in one read-only pass:
   * a semantic index that is missing, shape-mismatched, or holds orphan chunks
   * chunk-hash collisions in the manifest (same sha, different text — the dedup
     key is truncated, so collisions are surfaced even though they are unlikely)
-  * decision-graph integrity (malformed jsonl lines, duplicate fact ids,
-    ``supersedes`` pointing at ids that do not exist)
+  * decision-graph integrity (malformed/schema-invalid jsonl lines, duplicate
+    fact ids, ``supersedes`` pointing at ids that do not exist)
 
 Every check returns a list of :class:`Finding` records; :func:`doctor` formats
 them for humans or emits JSON. Mutates nothing.
@@ -33,6 +33,7 @@ from agent_memory.features.semantic.index import index_dir, load_index
 from agent_memory.hooks.budget_guard import collect_warnings
 from agent_memory.shared.config import GRAPH_FILE, TOPICS_DIR
 from agent_memory.shared.entries import _pid_is_alive, _session_pid, parse_entry
+from agent_memory.shared.graph import parse_graph_lines
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
 
@@ -335,22 +336,12 @@ def _check_graph(memory: Path) -> list[Finding]:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
-    rows: list[dict] = []
-    malformed = 0
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError:
-            malformed += 1
-            continue
-        if isinstance(row, dict):
-            rows.append(row)
-        else:
-            malformed += 1
+    rows, issues = parse_graph_lines(lines)
     out: list[Finding] = []
+    issue_counts = Counter((issue.kind, issue.action) for issue in issues)
+    malformed = issue_counts[("json", "skipped")]
+    invalid = issue_counts[("schema", "skipped")]
+    normalized = issue_counts[("schema", "normalized")]
     if malformed:
         out.append(
             Finding(
@@ -358,6 +349,24 @@ def _check_graph(memory: Path) -> list[Finding]:
                 check="graph",
                 detail=f"{GRAPH_FILE}: {malformed} malformed line(s) skipped at load",
                 hint="inspect the file; remove or repair the broken jsonl lines",
+            )
+        )
+    if invalid:
+        out.append(
+            Finding(
+                severity="warn",
+                check="graph",
+                detail=f"{GRAPH_FILE}: {invalid} invalid-schema line(s) skipped at load",
+                hint="run `agent-memory doctor`; repair records missing id/s/p/o string fields",
+            )
+        )
+    if normalized:
+        out.append(
+            Finding(
+                severity="warn",
+                check="graph",
+                detail=f"{GRAPH_FILE}: {normalized} invalid metadata field(s) normalized at load",
+                hint="repair aliases/supersedes lists or optional t/src string fields",
             )
         )
     ids = [str(r.get("id")) for r in rows if r.get("id")]

@@ -86,7 +86,7 @@ agent-memory status --json            # bank snapshot for hooks/quota tooling
 
 Vertical-slice layout under `src/agent_memory/features/` — one responsibility
 per folder (`bank`, `entries`, `compact`, `search`, `semantic`, `graph`,
-`maintain`, `coord`); cross-feature infra in `shared/`. CLI + skills, **not**
+`maintain`, `coord`, `doctor`); cross-feature infra in `shared/`. CLI + skills, **not**
 MCP: the index spends context only when called.
 
 ## Compatibility

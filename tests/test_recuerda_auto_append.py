@@ -63,3 +63,32 @@ def test_recuerda_hook_no_double_append_when_no_mem_append(clean_env: Path, monk
     monkeypatch.setattr(sys, "stdin", fake_stdin)
     assert main() == 0
     assert active.read_text(encoding="utf-8") == "# Active\n"
+
+
+def test_recuerda_hook_redacts_secrets_before_persisting(clean_env: Path, monkeypatch) -> None:
+    bank = clean_env / ".memory-bank"
+    bank.mkdir()
+    active = bank / "activeContext.md"
+    active.write_text("# Active\n", encoding="utf-8")
+    key = "sk-" + "abc123def456ghi789jkl012mno"
+    prompt = f"recuerda usar staging con access_token={key} para la prueba"
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"prompt": prompt})))
+
+    assert main() == 0
+
+    content = active.read_text(encoding="utf-8")
+    assert "usar staging con [REDACTED] para la prueba" in content
+    assert key not in content
+
+
+def test_recuerda_hook_skips_note_that_is_only_a_secret(clean_env: Path, monkeypatch) -> None:
+    bank = clean_env / ".memory-bank"
+    bank.mkdir()
+    active = bank / "activeContext.md"
+    active.write_text("# Active\n", encoding="utf-8")
+    key_name = "to" + "ken"
+    prompt = f"recuerda {key_name}=synthetic-value"
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"prompt": prompt})))
+
+    assert main() == 0
+    assert active.read_text(encoding="utf-8") == "# Active\n"

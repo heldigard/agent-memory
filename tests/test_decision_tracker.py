@@ -39,6 +39,15 @@ def test_extract_decisions() -> None:
     assert res == ["write unit tests for hooks"]
 
 
+def test_extract_decisions_uses_canonical_secret_redaction() -> None:
+    key = "sk-" + "abc123def456ghi789jkl012mno"
+
+    res = extract_decisions(f"DECISION: Use Authorization: Bearer {key} for staged migration.")
+
+    assert res == ["Use [REDACTED] for staged migration"]
+    assert key not in res[0]
+
+
 def test_decision_tracker_no_bank(clean_env: Path, monkeypatch) -> None:
     transcript = clean_env / "transcript.jsonl"
     transcript.write_text(

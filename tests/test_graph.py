@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from agent_memory.features.graph.command import (
     graph_add,
     graph_join,
@@ -10,6 +12,7 @@ from agent_memory.features.graph.command import (
     graph_stale,
     graph_supersede,
 )
+from agent_memory.shared.graph import parse_graph_lines
 from agent_memory.shared.text import split_csv
 
 
@@ -72,3 +75,49 @@ def test_graph_rewrite_is_atomic_no_tmp_litter(tmp_path) -> None:
     assert not list(bank.glob(".*tmp*")), "atomic write left staging litter"
     lines = (bank / "decisions.graph.jsonl").read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
+
+
+def test_parse_graph_lines_skips_invalid_core_and_normalizes_metadata() -> None:
+    rows, issues = parse_graph_lines(
+        [
+            '{"id":"g_001","s":"A","p":"OWNS","o":"B","extra":7}',
+            "[]",
+            '{"id":"g_002","s":"A","p":"OWNS"}',
+            (
+                '{"id":"g_003","s":"A","p":"OWNS","o":"C",'
+                '"aliases":"Alias","supersedes":["g_001",null,""]}'
+            ),
+            '{"id":"g_004","s":"A","p":"OWNS","o":"D","aliases":null}',
+            "not-json",
+        ]
+    )
+
+    assert [row["id"] for row in rows] == ["g_001", "g_003", "g_004"]
+    assert rows[0]["extra"] == 7
+    assert rows[0]["aliases"] == []
+    assert rows[1]["aliases"] == []
+    assert rows[1]["supersedes"] == ["g_001"]
+    assert rows[2]["aliases"] == []
+    assert {(issue.kind, issue.action) for issue in issues} == {
+        ("json", "skipped"),
+        ("schema", "skipped"),
+        ("schema", "normalized"),
+    }
+
+
+def test_graph_mixed_corrupt_rows_remains_usable_and_allocates_next_id(capsys, tmp_path) -> None:
+    graph = tmp_path / ".memory-bank" / "decisions.graph.jsonl"
+    graph.parent.mkdir()
+    graph.write_text(
+        json.dumps({"id": "g_007", "s": "A", "p": "OWNS", "o": "B", "aliases": "bad"}) + "\nnull\n",
+        encoding="utf-8",
+    )
+
+    assert graph_query(tmp_path, "A") == 0
+    assert graph_add(tmp_path, "B", "OWNS", "C") == 0
+
+    captured = capsys.readouterr()
+    assert "g_007" in captured.out
+    assert "added g_008" in captured.out
+    assert "normalizing graph line 1" in captured.err
+    assert "skipping graph line 2" in captured.err

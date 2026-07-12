@@ -9,5 +9,7 @@
 - Graph: triple store (`s,p,o`) with alias-aware query + 2-hop join via `agent-memory graph`.
 - `maintain`: LLM-assisted audit (propose-only); `--apply-safe` additive compaction. `doctor`: proactive health check (budgets/refs/PIDs/index/collisions/graph).
 - `status`/`doctor`/`auto-maintain-check` all emit `--json` for hook/quota consumption.
-- Tests: 195, ruff+mypy+VS-guard clean. Editable install: `uv pip install -e ".[test]"`.
+- Automatic remember/decision hooks share canonical credential redaction; graph JSONL parsing skips
+  invalid core rows, normalizes optional metadata, and feeds doctor schema diagnostics.
+- Tests: 206, ruff+mypy+VS-guard clean. Editable install: `uv pip install -e ".[test]"`.
 - Shim contract: `~/.claude/scripts/project-memory.py` delegates to `~/.local/bin/agent-memory`.

@@ -11,6 +11,11 @@ from pathlib import Path
 from agent_memory.shared.config import SECRET_RE
 
 
+def redact_secrets(text: str) -> str:
+    """Replace credential-shaped material while retaining surrounding context."""
+    return SECRET_RE.sub("[REDACTED]", text)
+
+
 def ensure_safe_text(text: str, max_chars: int = 1200) -> None:
     """Refuse oversize or secret-shaped text. Raises ``SystemExit`` so a CLI
     call stops cleanly without writing a dangerous entry."""

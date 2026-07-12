@@ -15,6 +15,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from agent_memory.shared.text import redact_secrets
+
 # --- Constants -----------------------------------------------------------
 
 MARKER_RE: re.Pattern[str] = re.compile(
@@ -32,12 +34,6 @@ DECISION_VERB_RES: list[re.Pattern[str]] = [
     ),
     re.compile(r"the approach (?:is|will be)\s+(.{15,280})", re.I),
 ]
-
-SECRET_RE: re.Pattern[str] = re.compile(
-    r"(?:api[_-]?key|password|passwd|secret|token|bearer|authorization"
-    r"|private[_-]?key|client[_-]?secret|access[_-]?key)\s*[:=]\s*\S+",
-    re.IGNORECASE,
-)
 
 QUICK_GATE: re.Pattern[str] = re.compile(
     r"decision|decisi|decided|going with|settled on|opting for|chose .+ over"
@@ -95,10 +91,6 @@ def _keyword_overlap(existing: str, candidate: str) -> float:
     return len(ew & cw) / len(cw)
 
 
-def _scrub_secrets(text: str) -> str:
-    return SECRET_RE.sub("[REDACTED]", text)
-
-
 def _trim(decision: str) -> str | None:
     """Trim to a sentence boundary within [MIN, MAX] length."""
     d = decision.strip().rstrip(".;,")
@@ -120,7 +112,7 @@ def extract_decisions(text: str) -> list[str]:
     # 1. explicit markers (high confidence)
     for m in MARKER_RE.finditer(text):
         chunk = m.group(1).split("\n", 1)[0]
-        cleaned = _trim(_scrub_secrets(chunk))
+        cleaned = _trim(redact_secrets(chunk))
         if cleaned and cleaned not in found:
             found.append(cleaned)
 
@@ -129,7 +121,7 @@ def extract_decisions(text: str) -> list[str]:
         for pat in DECISION_VERB_RES:
             for m in pat.finditer(text):
                 grp = m.group(1) if m.groups() else m.group(0)
-                cleaned = _trim(_scrub_secrets(grp))
+                cleaned = _trim(redact_secrets(grp))
                 if cleaned and cleaned not in found:
                     found.append(cleaned)
                 if len(found) >= MAX_CAPTURES_PER_TURN:
