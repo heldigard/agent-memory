@@ -15,7 +15,7 @@ from pathlib import Path
 
 from agent_memory.shared.config import GRAPH_FILE, GRAPH_PREDICATES
 from agent_memory.shared.paths import bank_dir
-from agent_memory.shared.text import ensure_safe_text
+from agent_memory.shared.text import atomic_write_text, ensure_safe_text
 
 
 def graph_path(root: Path) -> Path:
@@ -160,10 +160,11 @@ def graph_supersede(root: Path, new_id: str, old_id: str) -> int:
 
 
 def _graph_rewrite(path: Path, rows: list[dict]) -> None:
-    """Overwrite the graph file with ``rows`` (enriched metadata, append-only intent)."""
-    with path.open("w", encoding="utf-8") as fh:
-        for r in rows:
-            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    """Overwrite the graph file with ``rows`` (enriched metadata, append-only intent).
+
+    Atomic like every other full-file rewrite: a crash mid-supersede must not
+    truncate the whole decision graph."""
+    atomic_write_text(path, "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
 
 
 def graph_stale(root: Path) -> int:

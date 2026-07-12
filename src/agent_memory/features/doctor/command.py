@@ -12,6 +12,8 @@ Surfaces, in one read-only pass:
   * a semantic index that is missing, shape-mismatched, or holds orphan chunks
   * chunk-hash collisions in the manifest (same sha, different text — the dedup
     key is truncated, so collisions are surfaced even though they are unlikely)
+  * decision-graph integrity (malformed jsonl lines, duplicate fact ids,
+    ``supersedes`` pointing at ids that do not exist)
 
 Every check returns a list of :class:`Finding` records; :func:`doctor` formats
 them for humans or emits JSON. Mutates nothing.
@@ -29,7 +31,7 @@ from pathlib import Path
 
 from agent_memory.features.semantic.index import index_dir, load_index
 from agent_memory.hooks.budget_guard import collect_warnings
-from agent_memory.shared.config import TOPICS_DIR
+from agent_memory.shared.config import GRAPH_FILE, TOPICS_DIR
 from agent_memory.shared.entries import _pid_is_alive, _session_pid, parse_entry
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
@@ -79,6 +81,7 @@ def run_doctor(root: Path) -> list[Finding]:
     findings.extend(_check_broken_refs(memory))
     findings.extend(_check_dead_pids(memory))
     findings.extend(_check_index(root, memory))
+    findings.extend(_check_graph(memory))
     findings.extend(_check_harness_integration())
     findings.sort(key=lambda f: _SEVERITY_ORDER.get(f.severity, 9))
     return findings
@@ -191,6 +194,7 @@ def _dead_pid_findings_in(path: Path, rel: str) -> list[Finding]:
 def _check_harness_integration() -> list[Finding]:
     """Verify that global harness shims and environment variables are healthy."""
     import shutil
+
     out: list[Finding] = []
 
     # 1. Check if agent-memory is on PATH
@@ -297,8 +301,7 @@ def _check_index(root: Path, memory: Path) -> list[Finding]:
                 severity="warn",
                 check="index-version",
                 detail=(
-                    f"mismatched index version: stored={stored_version} "
-                    f"vs config={INDEX_VERSION}"
+                    f"mismatched index version: stored={stored_version} vs config={INDEX_VERSION}"
                 ),
                 hint="run `agent-memory semindex --rebuild` to regenerate index",
             )
@@ -318,6 +321,71 @@ def _check_index(root: Path, memory: Path) -> list[Finding]:
         )
     return out
 
+
+def _check_graph(memory: Path) -> list[Finding]:
+    """Decision-graph integrity: malformed lines, duplicate ids, dangling supersedes.
+
+    Duplicate ids are errors (query/supersede become ambiguous); malformed lines
+    and dangling ``supersedes`` targets are warns (skipped/ignored at load time,
+    but they signal a corrupted or hand-edited file)."""
+    path = memory / GRAPH_FILE
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    rows: list[dict] = []
+    malformed = 0
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            malformed += 1
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+        else:
+            malformed += 1
+    out: list[Finding] = []
+    if malformed:
+        out.append(
+            Finding(
+                severity="warn",
+                check="graph",
+                detail=f"{GRAPH_FILE}: {malformed} malformed line(s) skipped at load",
+                hint="inspect the file; remove or repair the broken jsonl lines",
+            )
+        )
+    ids = [str(r.get("id")) for r in rows if r.get("id")]
+    dupes = sorted(i for i, n in Counter(ids).items() if n > 1)
+    if dupes:
+        out.append(
+            Finding(
+                severity="error",
+                check="graph",
+                detail=f"{GRAPH_FILE}: duplicate fact id(s): {', '.join(dupes[:10])}",
+                hint="re-id the duplicates — supersede/query results are ambiguous",
+            )
+        )
+    known = set(ids)
+    dangling = sorted(
+        {str(sid) for r in rows for sid in (r.get("supersedes") or []) if str(sid) not in known}
+    )
+    if dangling:
+        out.append(
+            Finding(
+                severity="warn",
+                check="graph",
+                detail=f"{GRAPH_FILE}: supersedes reference unknown id(s): "
+                f"{', '.join(dangling[:10])}",
+                hint="the superseded fact was deleted or never existed; fix the reference",
+            )
+        )
+    return out
 
 
 def _check_hash_collisions(manifest: list[dict]) -> list[Finding]:

@@ -134,6 +134,7 @@ def test_doctor_mismatched_index_version_or_model(tmp_path: Path) -> None:
     (idx / "manifest.json").write_text("[]", encoding="utf-8")
 
     from agent_memory.shared.config import EMBED_MODEL_FILE, VERSION_FILE
+
     (idx / EMBED_MODEL_FILE).write_text("wrong-model", encoding="utf-8")
     (idx / VERSION_FILE).write_text("wrong-version", encoding="utf-8")
 
@@ -142,3 +143,41 @@ def test_doctor_mismatched_index_version_or_model(tmp_path: Path) -> None:
     version_mismatch = [f for f in findings if f.check == "index-version"]
     assert model_mismatch
     assert version_mismatch
+
+
+def test_doctor_graph_clean_and_absent(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    # no graph file at all → no graph findings
+    assert not [f for f in run_doctor(root) if f.check == "graph"]
+    # healthy graph → still no graph findings
+    from agent_memory.features.graph.command import graph_add
+
+    graph_add(root, "A", "DECIDED", "useX")
+    graph_add(root, "B", "DEPENDS_ON", "A")
+    assert not [f for f in run_doctor(root) if f.check == "graph"]
+
+
+def test_doctor_graph_duplicate_ids_is_error(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    graph = root / ".memory-bank" / "decisions.graph.jsonl"
+    graph.write_text(
+        '{"id": "g_001", "s": "A", "p": "DECIDED", "o": "x"}\n'
+        '{"id": "g_001", "s": "B", "p": "DECIDED", "o": "y"}\n',
+        encoding="utf-8",
+    )
+    findings = [f for f in run_doctor(root) if f.check == "graph"]
+    assert any(f.severity == "error" and "duplicate" in f.detail for f in findings), findings
+
+
+def test_doctor_graph_malformed_and_dangling_supersedes_warn(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    graph = root / ".memory-bank" / "decisions.graph.jsonl"
+    graph.write_text(
+        '{"id": "g_001", "s": "A", "p": "DECIDED", "o": "x", "supersedes": ["g_999"]}\n'
+        "not-json-at-all\n",
+        encoding="utf-8",
+    )
+    findings = [f for f in run_doctor(root) if f.check == "graph"]
+    assert any("malformed" in f.detail for f in findings), findings
+    assert any("g_999" in f.detail for f in findings), findings
+    assert all(f.severity == "warn" for f in findings), findings

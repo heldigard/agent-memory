@@ -59,3 +59,16 @@ def test_graph_supersede_unknown_id_returns_2(capsys, tmp_path) -> None:
     root = tmp_path
     graph_add(root, "A", "DECIDED", "useX")
     assert graph_supersede(root, "g_999", "g_001") == 2
+
+
+def test_graph_rewrite_is_atomic_no_tmp_litter(tmp_path) -> None:
+    """Supersede rewrites the whole file; it must go through atomic_write_text
+    (no staging tmp left behind, content intact)."""
+    root = tmp_path
+    graph_add(root, "A", "DECIDED", "useX")
+    graph_add(root, "A", "DECIDED", "useY")
+    assert graph_supersede(root, "g_002", "g_001") == 0
+    bank = root / ".memory-bank"
+    assert not list(bank.glob(".*tmp*")), "atomic write left staging litter"
+    lines = (bank / "decisions.graph.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
