@@ -7,7 +7,7 @@
 - BM25 path is memoized (`lru_cache` tokenize) + `Counter(d)` per doc + `argpartition` top-k; embed parallel via `ThreadPoolExecutor` (`AGENT_MEMORY_EMBED_WORKERS=4`).
 - Index build serialized via `fcntl.flock` on `.index/.build.lock`; chunk-level sha256 dedup + model/version sidecars.
 - Graph: triple store (`s,p,o`) with alias-aware query + 2-hop join via `agent-memory graph`.
-- `maintain`: LLM-assisted audit (propose-only); `--apply-safe` additive compaction. `doctor`: proactive health check (budgets/refs/PIDs/index/collisions).
+- `maintain`: LLM-assisted audit (propose-only); `--apply-safe` additive compaction. `doctor`: proactive health check (budgets/refs/PIDs/index/collisions/graph).
 - `status`/`doctor`/`auto-maintain-check` all emit `--json` for hook/quota consumption.
-- Tests: 150, ruff+mypy+VS-guard clean. Editable install: `uv pip install -e ".[test]"`.
+- Tests: 195, ruff+mypy+VS-guard clean. Editable install: `uv pip install -e ".[test]"`.
 - Shim contract: `~/.claude/scripts/project-memory.py` delegates to `~/.local/bin/agent-memory`.
