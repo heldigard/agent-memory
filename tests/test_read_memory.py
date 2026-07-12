@@ -125,9 +125,7 @@ class TestReadMemoryBounded:
         with pytest.raises(SystemExit, match="Topic not found"):
             read_memory(bank, per_file_lines=10, total_lines=100, topic="nonexistent")
 
-    def test_agent_sessions_filters_stale_coordination_noise(
-        self, bank: Path, capsys
-    ) -> None:
+    def test_agent_sessions_filters_stale_coordination_noise(self, bank: Path, capsys) -> None:
         """Old auto-generated coordination rows are hidden from startup context."""
         now = _ts(timedelta())
         old = _ts(timedelta(minutes=-30))
@@ -136,11 +134,11 @@ class TestReadMemoryBounded:
             "# Agent Sessions\n"
             "> Auto-generated coordination registry. Do not edit manually.\n\n"
             "## Active\n"
-            f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
+            f'- {now} | agent:codex | pid:sid-live | branch:main | task:"current" | '
             f"heartbeat:{now}\n"
-            f"- {now} | agent:codex | pid:pid:999999 | branch:main | task:\"None.\" | "
+            f'- {now} | agent:codex | pid:pid:999999 | branch:main | task:"None." | '
             f"heartbeat:{now}\n"
-            f"- {old} | agent:claude | pid:pid:999999 | branch:main | task:\"old\" | "
+            f'- {old} | agent:claude | pid:pid:999999 | branch:main | task:"old" | '
             f"heartbeat:{old}\n\n"
             "## Recently Ended\n"
             f"- {old} | agent:gemini | pid:sid-old | branch:main | heartbeat:{old} | "
@@ -155,9 +153,7 @@ class TestReadMemoryBounded:
         assert "old" not in out
         assert "sid-old" not in out
 
-    def test_topic_index_filters_operational_session_topics(
-        self, bank: Path, capsys
-    ) -> None:
+    def test_topic_index_filters_operational_session_topics(self, bank: Path, capsys) -> None:
         """Default reads hide session-log topics but keep domain topics."""
         index = bank / ".memory-bank" / "topics" / "_index.md"
         index.write_text(

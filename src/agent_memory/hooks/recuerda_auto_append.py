@@ -16,13 +16,13 @@ from datetime import datetime
 from pathlib import Path
 
 TRIGGERS: list[str] = [
-    r"\brecuerd[ae]\b",         # recuerda, recordá
-    r"\bremember\b",            # English
-    r"\bdon'?t forget\b",       # English
-    r"\bno olvides\b",          # Spanish
+    r"\brecuerd[ae]\b",  # recuerda, recordá
+    r"\bremember\b",  # English
+    r"\bdon'?t forget\b",  # English
+    r"\bno olvides\b",  # Spanish
     r"\bno olvid[áa]r\b",
-    r"\bnota:?\s",              # "nota: ..." or "nota ..."
-    r"\bnote:?\s",              # English
+    r"\bnota:?\s",  # "nota: ..." or "nota ..."
+    r"\bnote:?\s",  # English
     r"\bimportante:?\s",
     r"\bimportant:?\s",
 ]

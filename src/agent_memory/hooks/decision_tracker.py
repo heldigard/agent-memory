@@ -46,20 +46,23 @@ QUICK_GATE: re.Pattern[str] = re.compile(
 )
 
 WORKER_ENV_VARS: tuple[str, ...] = (
-    "CODEX_WORKER", "NO_DELEGATE", "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CODEX_WORKER",
+    "NO_DELEGATE",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
 )
 
-MAX_PATTERNS_LINES: int = 500          # systemPatterns.md budget
+MAX_PATTERNS_LINES: int = 500  # systemPatterns.md budget
 MAX_DECISION_LEN: int = 300
 MIN_DECISION_LEN: int = 20
 MAX_CAPTURES_PER_TURN: int = 3
 SIMILARITY_THRESHOLD: float = 0.70
-TRANSCRIPT_TAIL_LINES: int = 400       # bounded read of the session JSONL
+TRANSCRIPT_TAIL_LINES: int = 400  # bounded read of the session JSONL
 
 OUTPUT: str = '{"continue": true}'
 
 
 # --- Helpers -------------------------------------------------------------
+
 
 def _project_root() -> Path:
     """Detect project root: prefer CLAUDE_PROJECT_DIR, then git, fallback cwd."""
@@ -69,7 +72,9 @@ def _project_root() -> Path:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         if result.returncode == 0 and result.stdout.strip():
             return Path(result.stdout.strip())
@@ -80,8 +85,10 @@ def _project_root() -> Path:
 
 def _keyword_overlap(existing: str, candidate: str) -> float:
     """Cheap set-overlap dedup between two entries."""
+
     def words(s: str) -> set[str]:
         return {w.lower() for w in re.findall(r"\w{4,}", s)}
+
     ew, cw = words(existing), words(candidate)
     if not cw:
         return 0.0
@@ -189,6 +196,7 @@ def _is_duplicate(patterns_path: Path, entry: str) -> bool:
 
 
 # --- Main ----------------------------------------------------------------
+
 
 def main() -> int:
     print(OUTPUT)

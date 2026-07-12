@@ -139,7 +139,7 @@ def _strip_think(text: str) -> str:
     text = _OUTPUT_RE.sub(r"\1", text)
     visible = _VISIBLE_REASONING_RE.search(text)
     if visible:
-        text = text[visible.end():]
+        text = text[visible.end() :]
     else:
         low = text.lstrip().lower()
         if low.startswith(("thinking process:", "let me think:")):

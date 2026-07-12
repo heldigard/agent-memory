@@ -78,14 +78,14 @@ def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
     registry.write_text(
         "# Agent Sessions\n\n"
         "## Active\n"
-        f"- {old} | agent:codex | pid:pid:999999 | branch:main | task:\"old\" | "
+        f'- {old} | agent:codex | pid:pid:999999 | branch:main | task:"old" | '
         f"heartbeat:{old}\n"
-        f"- {now} | agent:codex | pid:pid:999999 | branch:main | task:\"None.\" | "
+        f'- {now} | agent:codex | pid:pid:999999 | branch:main | task:"None." | '
         f"heartbeat:{now}\n"
-        f"- {now} | agent:codex | pid:sid-live | branch:main | task:\"current\" | "
+        f'- {now} | agent:codex | pid:sid-live | branch:main | task:"current" | '
         f"heartbeat:{now}\n\n"
         f"- {now} | status:superseded | agent:codex | pid:sid-historical | branch:main | "
-        f"task:\"historical\" | heartbeat:{now}\n\n"
+        f'task:"historical" | heartbeat:{now}\n\n'
         "## Recently Ended\n",
         encoding="utf-8",
     )
@@ -98,9 +98,7 @@ def test_coord_cleanup_missing_binary_uses_local_registry_fallback(
     assert "historical" in body
 
 
-def test_coord_cleanup_runs_broker_cleanup_when_available(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_coord_cleanup_runs_broker_cleanup_when_available(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(coord_mod.shutil, "which", lambda name: "/fake/bin/acs")
     orch = tmp_path / "cli-orchestration.py"
     orch.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
