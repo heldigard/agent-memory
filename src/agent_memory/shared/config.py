@@ -149,9 +149,10 @@ RERANK_TOPN = 12
 
 # Maintenance LLM model (overrides via env, same var as codeq summary layer).
 # Tracks the codeq_sum bench winner — they intentionally share CODEQ_SUMMARY_MODEL.
-# 2026-07-12 round-9: Qwythos-9B is codeq_sum #1 (9.40); batiai/gemma4-e4b:q4
-# (9.19) is the documented fallback. See ~/ollama-bench/RANKING.md ## codeq_sum.
-MAINT_MODEL_DEFAULT = "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M"
+# 2026-07-13 round-17: TeichAI/Qwen3.5-9B-Fable-5-v1 dethroned Qwythos in fresh
+# 5-way (9.84 vs 9.40, +4.7%). Qwythos demoted to fallback (`CODEQ_FALLBACK_MODEL`).
+# See ~/ollama-bench/RANKING.md ## codeq_sum.
+MAINT_MODEL_DEFAULT = "hf.co/TeichAI/Qwen3.5-9B-Fable-5-v1-GGUF:Q4_K_M"
 MAINT_AUDIT_LINE_CAP = 150
 MAINT_AUDIT_CHAR_BUDGET = 6000
 
