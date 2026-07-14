@@ -130,3 +130,87 @@ def test_coord_timeout_returns_1(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr(coord_mod.subprocess, "run", fake_run)
     assert coord_mod.coord_status(tmp_path) == 1
     assert "timed out" in capsys.readouterr().err
+
+
+def test_coord_launch_oserror_returns_1(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(coord_mod.shutil, "which", lambda name: "/fake/bin/acs")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> object:
+        raise OSError("failed to launch")
+
+    monkeypatch.setattr(coord_mod.subprocess, "run", fake_run)
+    assert coord_mod.coord_status(tmp_path) == 1
+    assert "failed to launch" in capsys.readouterr().err
+
+
+def test_local_registry_cleanup_oserror_returns_false(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(coord_mod.shutil, "which", lambda name: None)
+    # _local_registry_cleanup will raise OSError on missing dir/file, returns False
+    assert coord_mod._local_registry_cleanup(tmp_path) is False
+
+
+def test_coord_cleanup_broker_timeout_returns_error(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(coord_mod.shutil, "which", lambda name: "/fake/bin/acs")
+    orch = tmp_path / "cli-orchestration.py"
+    orch.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    monkeypatch.setattr(coord_mod, "ORCH_SCRIPT", orch)
+
+    def fake_run(cmd: list[str], **kwargs: object) -> object:
+        if cmd[0] == "/fake/bin/acs":
+
+            class _FakeResult:
+                returncode = 0
+
+            return _FakeResult()
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=30)
+
+    monkeypatch.setattr(coord_mod.subprocess, "run", fake_run)
+    assert coord_mod.coord_cleanup(tmp_path) == 1
+    assert "timed out after 30s" in capsys.readouterr().err
+
+
+def test_coord_cleanup_broker_oserror_returns_error(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(coord_mod.shutil, "which", lambda name: "/fake/bin/acs")
+    orch = tmp_path / "cli-orchestration.py"
+    orch.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    monkeypatch.setattr(coord_mod, "ORCH_SCRIPT", orch)
+
+    def fake_run(cmd: list[str], **kwargs: object) -> object:
+        if cmd[0] == "/fake/bin/acs":
+
+            class _FakeResult:
+                returncode = 0
+
+            return _FakeResult()
+        raise OSError("failed to launch broker")
+
+    monkeypatch.setattr(coord_mod.subprocess, "run", fake_run)
+    assert coord_mod.coord_cleanup(tmp_path) == 1
+    assert "failed to launch" in capsys.readouterr().err
+
+
+def test_coord_cleanup_broker_nonzero_returns_error_code(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(coord_mod.shutil, "which", lambda name: "/fake/bin/acs")
+    orch = tmp_path / "cli-orchestration.py"
+    orch.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    monkeypatch.setattr(coord_mod, "ORCH_SCRIPT", orch)
+
+    def fake_run(cmd: list[str], **kwargs: object) -> object:
+        if cmd[0] == "/fake/bin/acs":
+
+            class _FakeResult:
+                returncode = 0
+
+            return _FakeResult()
+
+        class _FakeBrokerResult:
+            returncode = 42
+            stderr = "broker error message"
+
+        return _FakeBrokerResult()
+
+    monkeypatch.setattr(coord_mod.subprocess, "run", fake_run)
+    assert coord_mod.coord_cleanup(tmp_path) == 42
+    assert "broker error message" in capsys.readouterr().err
