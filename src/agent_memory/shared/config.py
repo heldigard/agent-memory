@@ -73,6 +73,13 @@ SECRET_RE = re.compile(
     r"|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}"
     r"|\bBEGIN [A-Z ]*PRIVATE KEY\b"
     r"|\bsk-[A-Za-z0-9_-]{20,}\b"
+    # Provider-scoped token literals agents routinely handle (GitHub / Slack /
+    # AWS). Each is a fixed prefix + a long high-entropy body, so prose never
+    # collides; catching them stops credentials from landing in the bank.
+    r"|\bgh[pousr]_[A-Za-z0-9]{36,}\b"
+    r"|\bgithub_pat_[A-Za-z0-9_]{40,}\b"
+    r"|\bxox[bpoars]-[A-Za-z0-9-]{12,}\b"
+    r"|\bAKIA[0-9A-Z]{16}\b"
     r")",
     re.IGNORECASE,
 )

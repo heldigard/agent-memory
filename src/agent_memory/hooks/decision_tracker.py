@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 
@@ -118,25 +119,32 @@ def extract_decisions(text: str) -> list[str]:
 
     # 2. decision verbs (only if no explicit marker was used)
     if not found:
-        for pat in DECISION_VERB_RES:
-            for m in pat.finditer(text):
-                grp = m.group(1) if m.groups() else m.group(0)
-                cleaned = _trim(redact_secrets(grp))
-                if cleaned and cleaned not in found:
-                    found.append(cleaned)
-                if len(found) >= MAX_CAPTURES_PER_TURN:
-                    break
-            if len(found) >= MAX_CAPTURES_PER_TURN:
-                break
+        found = _scan_verb_decisions(text)
 
     return found[:MAX_CAPTURES_PER_TURN]
+
+
+def _scan_verb_decisions(text: str) -> list[str]:
+    """Low-confidence fallback: extract from ``DECIDED/going with/...`` verbs."""
+    found: list[str] = []
+    for pat in DECISION_VERB_RES:
+        for m in pat.finditer(text):
+            grp = m.group(1) if m.groups() else m.group(0)
+            cleaned = _trim(redact_secrets(grp))
+            if cleaned and cleaned not in found:
+                found.append(cleaned)
+            if len(found) >= MAX_CAPTURES_PER_TURN:
+                return found
+    return found
 
 
 def last_assistant_text(transcript_path: Path) -> str:
     """Read the last assistant text block from the session JSONL (bounded)."""
     try:
         with transcript_path.open(encoding="utf-8", errors="replace") as fh:
-            lines = fh.readlines()[-TRANSCRIPT_TAIL_LINES:]
+            # Bounded tail: iterate lazily and keep only the last N lines so a
+            # multi-MB transcript never loads fully into RAM on every Stop.
+            lines = list(deque(fh, maxlen=TRANSCRIPT_TAIL_LINES))
     except OSError:
         return ""
     for line in reversed(lines):
@@ -152,19 +160,25 @@ def last_assistant_text(transcript_path: Path) -> str:
         msg = entry.get("message")
         if not isinstance(msg, dict) or msg.get("role") != "assistant":
             continue
-        parts: list[str] = []
         content_list = msg.get("content", [])
         if not isinstance(content_list, list):
             continue
-        for block in content_list:
-            if isinstance(block, dict) and block.get("type") == "text":
-                t = block.get("text", "")
-                if isinstance(t, str) and t:
-                    parts.append(t)
-        text = "\n".join(parts).strip()
+        text = "\n".join(_assistant_text_blocks(content_list)).strip()
         if text:
             return text
     return ""
+
+
+def _assistant_text_blocks(content_list: list[object]) -> list[str]:
+    """Collect the ``type == "text"`` strings from an assistant content list."""
+    parts: list[str] = []
+    for block in content_list:
+        if not isinstance(block, dict) or block.get("type") != "text":
+            continue
+        t = block.get("text", "")
+        if isinstance(t, str) and t:
+            parts.append(t)
+    return parts
 
 
 def _line_count(path: Path) -> int:
@@ -175,16 +189,54 @@ def _line_count(path: Path) -> int:
         return 0
 
 
-def _is_duplicate(patterns_path: Path, entry: str) -> bool:
-    try:
-        content = patterns_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return False
+def _is_duplicate_in(lines: list[str], entry: str) -> bool:
+    """True if ``entry`` is near-duplicate of an existing ``- `` line.
+
+    Operates on a pre-read snapshot so a batch of candidates does not re-read
+    the file once per item (the old ``_is_duplicate`` did up to
+    MAX_CAPTURES_PER_TURN full reads per turn)."""
     return any(
         _keyword_overlap(line, entry) > SIMILARITY_THRESHOLD
-        for line in content.splitlines()
+        for line in lines
         if line.startswith("- ")
     )
+
+
+def _read_existing_lines(path: Path) -> list[str]:
+    """Read a file's lines once (empty list on OS error) for batch dedup."""
+    try:
+        return path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+
+
+def _ensure_trailing_newline(path: Path) -> None:
+    """Append a newline when an existing file lacks one, so the next entry is clean."""
+    if not (path.exists() and path.stat().st_size > 0):
+        return
+    with path.open("r+b") as f:
+        f.seek(-1, 2)
+        if f.read(1) != b"\n":
+            f.write(b"\n")
+
+
+def _append_decisions(path: Path, decisions: list[str], today: str, existing: list[str]) -> int:
+    """Append non-duplicate decisions to ``path``; return how many were written.
+
+    ``existing`` is the pre-read snapshot, extended as we write so intra-batch
+    near-duplicates (none expected — extract_decisions already self-dedupes)
+    still can't slip through."""
+    _ensure_trailing_newline(path)
+    appended = 0
+    with path.open("a", encoding="utf-8") as f:
+        for d in decisions:
+            entry = f"- [{today}] {d}"
+            if _is_duplicate_in(existing, entry):
+                continue
+            f.write(entry + "\n")
+            existing.append(entry)
+            appended += 1
+    return appended
 
 
 # --- Main ----------------------------------------------------------------
@@ -233,18 +285,8 @@ def main() -> int:
     today = datetime.now().strftime("%Y-%m-%d")
     appended = 0
     try:
-        if patterns_path.exists() and patterns_path.stat().st_size > 0:
-            with patterns_path.open("r+b") as f:
-                f.seek(-1, 2)
-                if f.read(1) != b"\n":
-                    f.write(b"\n")
-        with patterns_path.open("a", encoding="utf-8") as f:
-            for d in decisions:
-                entry = f"- [{today}] {d}"
-                if _is_duplicate(patterns_path, entry):
-                    continue
-                f.write(entry + "\n")
-                appended += 1
+        existing = _read_existing_lines(patterns_path)
+        appended = _append_decisions(patterns_path, decisions, today, existing)
     except OSError:
         pass
     if appended:

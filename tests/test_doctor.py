@@ -197,3 +197,30 @@ def test_doctor_graph_reports_schema_and_normalized_metadata(tmp_path: Path) -> 
 
     assert any("2 invalid-schema line(s) skipped" in finding.detail for finding in findings)
     assert any("1 invalid metadata field(s) normalized" in finding.detail for finding in findings)
+
+
+def test_doctor_flags_index_staging_leftovers(tmp_path: Path) -> None:
+    """An interrupted atomic save strands `.vectors.tmp.npz`-style files in
+    `.index/`; doctor must surface them as a low-severity disk-hygiene nudge."""
+    root = _seed_min(tmp_path)
+    idx = root / ".memory-bank" / ".index"
+    idx.mkdir(parents=True)
+    (idx / ".vectors.tmp.npz").write_bytes(b"")
+    (idx / ".manifest.tmp.json").write_text("[]", encoding="utf-8")
+
+    findings = [f for f in run_doctor(root) if f.check == "index-tmp"]
+
+    assert len(findings) == 1
+    assert findings[0].severity == "warn"
+    assert "2 staging file(s)" in findings[0].detail
+    assert ".vectors.tmp.npz" in findings[0].detail
+
+
+def test_doctor_clean_index_dir_has_no_tmp_finding(tmp_path: Path) -> None:
+    """A real index file (no ``.tmp`` staging residue) must not trip the check."""
+    root = _seed_min(tmp_path)
+    idx = root / ".memory-bank" / ".index"
+    idx.mkdir(parents=True)
+    (idx / "vectors.npz").write_bytes(b"")
+
+    assert not [f for f in run_doctor(root) if f.check == "index-tmp"]

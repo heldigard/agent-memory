@@ -234,21 +234,46 @@ def _check_harness_integration() -> list[Finding]:
     return out
 
 
+def _check_index_tmp(idx: Path) -> list[Finding]:
+    """Staging files (``.vectors.tmp.npz`` etc.) left by an interrupted save.
+
+    ``save_index`` writes tmp files then ``os.replace``s them atomically; a
+    crash (SIGKILL / power) between write and replace strands them on disk.
+    Harmless — the next build overwrites — but they waste space and can confuse
+    a human inspecting ``.index/``, so surface them as a low-severity nudge."""
+    if not idx.is_dir():
+        return []
+    leftovers = sorted(p.name for p in idx.iterdir() if p.is_file() and ".tmp" in p.name)
+    if not leftovers:
+        return []
+    return [
+        Finding(
+            severity="warn",
+            check="index-tmp",
+            detail=f"{len(leftovers)} staging file(s) from an interrupted save: "
+            f"{', '.join(leftovers[:5])}",
+            hint="safe to delete; `agent-memory semindex` rewrites atomically",
+        )
+    ]
+
+
 def _check_index(root: Path, memory: Path) -> list[Finding]:
-    """Semantic index: existence, shape consistency, orphans, hash collisions."""
+    """Semantic index: existence, shape consistency, orphans, hash collisions,
+    and leftover staging files from an interrupted atomic save."""
     idx = index_dir(root)
     vpath, mpath = idx / "vectors.npz", idx / "manifest.json"
+    out: list[Finding] = list(_check_index_tmp(idx))
     if not (vpath.exists() and mpath.exists()):
         return [
+            *out,
             Finding(
                 severity="info",
                 check="index",
                 detail="no semantic index yet",
                 hint="run `agent-memory semindex` to enable semantic recall",
-            )
+            ),
         ]
     vectors, manifest = load_index(idx)
-    out: list[Finding] = []
     n_vec = vectors.shape[0] if vectors.ndim == 2 else 0
     if len(manifest) != n_vec:
         out.append(

@@ -9,7 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from agent_memory.hooks.decision_tracker import extract_decisions, main
+from agent_memory.hooks.decision_tracker import (
+    TRANSCRIPT_TAIL_LINES,
+    extract_decisions,
+    last_assistant_text,
+    main,
+)
 
 
 @pytest.fixture
@@ -105,3 +110,24 @@ def test_decision_tracker_appends(clean_env: Path, monkeypatch) -> None:
 
     content = patterns.read_text(encoding="utf-8")
     assert "Adopt AST parsing for all project source files" in content
+
+
+def test_last_assistant_text_is_bounded_to_tail(clean_env: Path) -> None:
+    """A transcript longer than the tail window keeps only the LAST assistant
+    message — the deque-based read must not load the whole file, and must drop
+    an assistant block that fell out of the tail window."""
+
+    def _line(role: str, text: str) -> str:
+        return json.dumps({"message": {"role": role, "content": [{"type": "text", "text": text}]}})
+
+    early = _line("assistant", "DECISION: early block evicted from the tail window")
+    # Padding deeper than the tail window so ``early`` falls off the back.
+    padding = [_line("user", f"padding line number {i}") for i in range(TRANSCRIPT_TAIL_LINES + 10)]
+    late = _line("assistant", "DECISION: latest block kept in the bounded tail")
+
+    transcript = clean_env / "big.jsonl"
+    transcript.write_text("\n".join([early, *padding, late]) + "\n", encoding="utf-8")
+
+    text = last_assistant_text(transcript)
+    assert "latest block kept in the bounded tail" in text
+    assert "evicted from the tail window" not in text

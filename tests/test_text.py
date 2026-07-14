@@ -218,3 +218,33 @@ class TestAtomicWriteText:
         atomic_write_text(target, "b")
         assert target.read_text() == "b"
         assert not list(tmp_path.glob(".*.tmp"))
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        pytest.param("ghp_" + "a" * 36, id="github-classic"),
+        pytest.param("github_pat_" + "B" * 50, id="github-finegrained"),
+        pytest.param("xoxb-" + "0123456789-cdefghijkl", id="slack-bot"),
+        pytest.param("AKIA" + "ABCDEFGHIJKLMNOP", id="aws-access-key"),
+    ],
+)
+class TestSecretTokenLiterals:
+    """Provider-scoped token literals (GitHub/Slack/AWS) must be treated as
+    secrets on both the redaction path (hooks) and the reject path (CLI writes)."""
+
+    def test_redact_replaces_provider_token(self, token: str) -> None:
+        redacted = redact_secrets(f"use token {token} for the deploy")
+        assert token not in redacted
+        assert "[REDACTED]" in redacted
+
+    def test_ensure_safe_text_rejects_provider_token(self, token: str) -> None:
+        with pytest.raises(SystemExit, match="secret"):
+            ensure_safe_text(f"use token {token} for the deploy")
+
+
+def test_prose_mentioning_token_concepts_stays_safe() -> None:
+    """Naming credential concepts without a real value must not trip the guard."""
+    prose = "Rotated the GitHub and Slack credentials without exposing any value."
+    assert redact_secrets(prose) == prose
+    ensure_safe_text(prose)
