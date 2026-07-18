@@ -41,6 +41,17 @@ from agent_memory.shared.paths import project_root
 from agent_memory.shared.text import split_csv
 
 
+def _target_ratio(value: str) -> float:
+    """Parse a compaction ratio with an argparse-friendly error."""
+    try:
+        ratio = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("target ratio must be a number") from exc
+    if not 0 < ratio <= 1:
+        raise argparse.ArgumentTypeError("target ratio must be greater than 0 and at most 1")
+    return ratio
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Build the top-level parser and all subcommand parsers."""
     parser = argparse.ArgumentParser(
@@ -63,6 +74,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sub.add_parser("handoff", help="Generate a session handoff summary for activeContext.md")
     compact = sub.add_parser("compact", help="Enforce line budgets on core memory files")
     compact.add_argument("--topics", action="store_true", help="Also compact topic files")
+    compact.add_argument(
+        "--target-ratio",
+        type=_target_ratio,
+        default=1.0,
+        metavar="RATIO",
+        help="Compact proactively to this budget fraction (0 < ratio <= 1)",
+    )
 
     maintain_p = sub.add_parser(
         "maintain",
@@ -200,7 +218,11 @@ def main() -> int:
         handoff(root)
         return 0
     if cmd == "compact":
-        compact_memory(root, include_topics=args.topics)
+        compact_memory(
+            root,
+            include_topics=args.topics,
+            target_ratio=args.target_ratio,
+        )
         return 0
     if cmd == "maintain":
         maintain(root, apply_safe=args.apply_safe, output=args.output, no_llm=args.no_llm)

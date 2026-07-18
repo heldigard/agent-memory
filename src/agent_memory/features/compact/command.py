@@ -82,21 +82,32 @@ def compact_file(path: Path, max_lines: int) -> bool:
     return True
 
 
-def _compact_topics(memory: Path) -> list[str]:
+def _compact_topics(memory: Path, target_ratio: float = 1.0) -> list[str]:
     """Compact every topic file over the soft limit; return the changed names."""
     changed: list[str] = []
+    target_lines = max(2, int(TOPIC_SOFT_LIMIT * target_ratio))
     for path in sorted((memory / TOPICS_DIR).glob("*.md")):
-        if compact_file(path, TOPIC_SOFT_LIMIT):
+        if compact_file(path, target_lines):
             changed.append(f"{TOPICS_DIR}/{path.name}")
     return changed
 
 
-def compact_memory(root: Path, include_topics: bool = False) -> None:
-    """Enforce line budgets on all core files (and optionally topics)."""
+def compact_memory(
+    root: Path,
+    include_topics: bool = False,
+    target_ratio: float = 1.0,
+) -> None:
+    """Compact core files to a configurable fraction of their line budgets."""
+    if not 0 < target_ratio <= 1:
+        raise ValueError("target_ratio must be greater than 0 and at most 1")
     memory = bank_dir(root)
-    changed = [name for name, (_, limit) in FILES.items() if compact_file(memory / name, limit)]
+    changed = [
+        name
+        for name, (_, limit) in FILES.items()
+        if compact_file(memory / name, max(2, int(limit * target_ratio)))
+    ]
     if include_topics:
-        changed.extend(_compact_topics(memory))
+        changed.extend(_compact_topics(memory, target_ratio))
     print("Compacted: " + (", ".join(changed) if changed else "none"))
 
 

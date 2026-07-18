@@ -57,6 +57,7 @@ agent-memory maintain --no-llm        # deterministic budget audit only
 agent-memory auto-maintain            # lightweight SessionStart refresh
 agent-memory auto-maintain-check --json  # staleness + budget only (fast path)
 agent-memory compact                  # enforce line budgets on core files
+agent-memory compact --target-ratio 0.8  # proactively resolve 80% budget warnings
 agent-memory compact --topics         # also compact topic files
 agent-memory archive-topic <slug>     # move whole topic to topics/archive/
 

@@ -46,6 +46,28 @@ def test_compact_memory_runs_over_all_core_files(tmp_path) -> None:
     compact_memory(tmp_path)  # should not raise; prints a summary line
 
 
+def test_compact_memory_can_act_before_the_hard_budget(tmp_path) -> None:
+    bank = tmp_path / ".memory-bank"
+    bank.mkdir()
+    progress = bank / "progress.md"
+    progress.write_text(
+        "# progress\n" + "\n".join(f"- 2026-01-01 e{i}" for i in range(250)) + "\n",
+        encoding="utf-8",
+    )
+
+    compact_memory(tmp_path, target_ratio=0.8)
+
+    assert len(progress.read_text(encoding="utf-8").splitlines()) <= 241
+    assert (bank / "topics" / "archive").is_dir()
+
+
+def test_compact_memory_rejects_invalid_target_ratio(tmp_path) -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="target_ratio"):
+        compact_memory(tmp_path, target_ratio=0)
+
+
 def test_compact_file_leaves_no_tmp_residue(tmp_path) -> None:
     # Atomic write: compaction must not leave a stale .tmp staging file behind.
     # Guards the corruption fix for the shared markdown banks.
