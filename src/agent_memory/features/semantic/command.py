@@ -6,11 +6,13 @@ returns an exit code. Wired up by ``agent_memory.cli``.
 
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from agent_memory.features.semantic import recall as recall_mod
+from agent_memory.features.semantic import watch as watch_mod
 from agent_memory.features.semantic.hybrid import hybrid_search
 from agent_memory.features.semantic.index import build_index, index_dir, load_index
 from agent_memory.features.semantic.search import keyword_fallback
@@ -92,15 +94,22 @@ def cmd_recall(root: Path, k: int, query: str | None, min_score: float, full: bo
     return 0
 
 
-def cmd_status(root: Path) -> int:
+def cmd_status(root: Path, json_out: bool = False) -> int:
     from agent_memory.features.semantic.status import status as index_status
 
     st = index_status(root)
+    if json_out:
+        print(json.dumps(st))
+        return 0
     for key, val in st.items():
         print(f"{key:18} {val}")
     if st["stale_files"] or st["orphan_chunks"]:
         print("Run `index` (or `clean`) to refresh.")
     return 0
+
+
+def cmd_watch(root: Path, interval: float, debounce: float) -> int:
+    return watch_mod.watch(root, interval=interval, debounce=debounce)
 
 
 def cmd_clean(root: Path) -> int:

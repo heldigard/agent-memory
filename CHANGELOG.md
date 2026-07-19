@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `semwatch` subcommand — debounced stdlib polling of `.memory-bank` that triggers
+  incremental reindex on change (same `flock` build lock as `semindex`; Ctrl-C exits
+  cleanly). Systemd user unit template at `docs/systemd/agent-memory-semwatch.service`.
+- `semstatus --json` — machine-readable index health snapshot, matching the `--json`
+  parity of `status`/`doctor`/`auto-maintain-check` for hook and quota tooling.
+
 ### Fixed
 - Automatic remember/decision hooks now redact credential-shaped values through the canonical
   memory-safety policy instead of bypassing explicit-write safeguards or maintaining a weaker,

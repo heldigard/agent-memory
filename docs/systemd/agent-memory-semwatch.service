@@ -1,0 +1,27 @@
+# systemd user unit — keep one project's semantic index hot with `semwatch`.
+#
+# Install (per project, no root needed):
+#   mkdir -p ~/.config/systemd/user
+#   cp docs/systemd/agent-memory-semwatch.service ~/.config/systemd/user/agent-memory-semwatch@.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now agent-memory-semwatch@$(systemd-escape /path/to/project).service
+#
+# Logs:  journalctl --user -u agent-memory-semwatch@$(systemd-escape /path/to/project) -f
+# Stop:  systemctl --user disable --now 'agent-memory-semwatch@*'
+
+[Unit]
+Description=agent-memory semwatch (%i)
+# Ollama down is fine: the indexer degrades to BM25/keyword and fills vectors on the next pass.
+After=default.target
+
+[Service]
+Type=simple
+# %i = systemd-escaped project path (e.g. `systemd-escape /home/me/proj`).
+ExecStart=/usr/bin/env agent-memory --root %i semwatch --interval 2 --debounce 1
+Restart=on-failure
+RestartSec=10
+# Cheap by design (polling a few dozen markdown files), but keep it polite anyway.
+Nice=10
+
+[Install]
+WantedBy=default.target

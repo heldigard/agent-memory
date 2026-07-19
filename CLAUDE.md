@@ -33,7 +33,7 @@ See `README.md` for the user-facing overview.
 - `entries` — parse/format/timestamp/status guards
 - `compact` — line-budget enforcement + whole-topic archive
 - `search` — keyword (grep-style) search
-- `semantic` — `index`/`search`/`hybrid`/`recall`/`chunking`/`status` (BM25+dense RRF, local embeddings)
+- `semantic` — `index`/`search`/`hybrid`/`recall`/`chunking`/`status`/`watch` (BM25+dense RRF, local embeddings; `semwatch` = debounced polling auto-reindex, systemd unit in `docs/systemd/`)
 - `graph` — `(s,p,o)` triple store + join queries
 - `maintain` — LLM-assisted audit (propose-only) + `--apply-safe` additive compaction
 - `coord` — bridge to `agent-coordination-status` (sibling project)

@@ -5,6 +5,10 @@ script in ``pyproject.toml``). The legacy ``project-memory`` symlink points at
 this same binary, so the 40-odd ecosystem references keep working untouched.
 """
 
+# vs-soft-allow — single-responsibility CLI surface: parse_args is one flat
+# argparse declaration and main one flat dispatch; splitting either would
+# scatter the command table, not improve cohesion.
+
 from __future__ import annotations
 
 import argparse
@@ -135,7 +139,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     semindex = sub.add_parser("semindex", help="Build/update the per-project semantic index")
     semindex.add_argument("--rebuild", action="store_true")
 
-    sub.add_parser("semstatus", help="Semantic index health")
+    sub.add_parser("semstatus", help="Semantic index health").add_argument(
+        "--json", action="store_true", help="Emit the health snapshot as JSON"
+    )
+    semwatch = sub.add_parser(
+        "semwatch", help="Watch the bank and reindex on change (Ubuntu-native daemon mode)"
+    )
+    semwatch.add_argument("--interval", type=float, default=2.0, help="Poll seconds (default 2)")
+    semwatch.add_argument(
+        "--debounce", type=float, default=1.0, help="Settle wait after a change (default 1)"
+    )
     sub.add_parser("semclean", help="Purge orphan embeddings + compact the index")
 
     semrecall = sub.add_parser(
@@ -267,7 +280,11 @@ def main() -> int:
     if cmd == "semstatus":
         from agent_memory.features.semantic.command import cmd_status
 
-        return cmd_status(root)
+        return cmd_status(root, json_out=args.json)
+    if cmd == "semwatch":
+        from agent_memory.features.semantic.command import cmd_watch
+
+        return cmd_watch(root, interval=args.interval, debounce=args.debounce)
     if cmd == "semclean":
         from agent_memory.features.semantic.command import cmd_clean
 

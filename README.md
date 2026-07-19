@@ -38,7 +38,10 @@ agent-memory supersede-entry "old model decision" --file progress.md
 agent-memory semindex                 # build/update the embedding index
 agent-memory semindex --rebuild       # force full re-embed
 agent-memory semstatus                # index health (chunks, dim, staleness)
+agent-memory semstatus --json         # machine-readable health snapshot (hooks/quota)
 agent-memory semclean                 # purge orphan embeddings + compact
+agent-memory semwatch                 # poll the bank and reindex on change (Ctrl-C stops)
+agent-memory semwatch --interval 5 --debounce 2   # slower, quieter polling
 agent-memory semsearch "cross-cli handoff" --min-score 0.25
 agent-memory semsearch "old decision" --include-inactive  # include superseded chunks
 agent-memory semrecall                # SessionStart recall from currentTask.md
@@ -81,6 +84,14 @@ agent-memory status --json            # bank snapshot for hooks/quota tooling
 | `CODEQ_NO_LLM` / `PROJECT_MEMORY_NO_LLM` | unset | Skip all Ollama calls (deterministic only) |
 | `MEMORY_ACTIVE_WINDOW_HOURS` | `6.0` | Freshness window for completed-entry archival |
 | `MEMORY_STALENESS_DAYS` | `14` | Staleness threshold for `auto-maintain-check` |
+
+### Always-on indexing (Linux)
+
+`semwatch` keeps the index hot while agents edit the bank: stdlib mtime polling
+(no inotify dependency), debounced, serialized through the same `flock` build
+lock as `semindex`. A ready-made systemd **user** unit template lives at
+`docs/systemd/agent-memory-semwatch.service` — install instructions are in the
+file header.
 
 
 ## Architecture
