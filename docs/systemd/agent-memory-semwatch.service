@@ -19,10 +19,14 @@ After=default.target
 
 [Service]
 Type=simple
+# User units do not inherit a login shell PATH — without ~/.local/bin the
+# console script from `uv pip install --user` / hatch is invisible (exit 127).
+Environment=PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
 # %I = the UNescaped instance name (the real project path). Use %I, not %i:
 # %i leaves the path escaped (hyphens become \x2d), so --root would receive a
 # mangled path. The instance NAME keeps the escaped form (valid filename); %I
 # restores it for the argument.
+# Prefer absolute binary when install-semwatch.sh writes a drop-in override.
 ExecStart=/usr/bin/env agent-memory --root %I semwatch --interval 2 --debounce 1
 Restart=on-failure
 RestartSec=10
