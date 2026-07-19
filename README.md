@@ -84,6 +84,8 @@ agent-memory status --json            # bank snapshot for hooks/quota tooling
 | `AGENT_MEMORY_EMBED_WORKERS` | `4` | Parallel embed threads for `semindex` (set `1` for serial) |
 | `CODEQ_SUMMARY_MODEL` | `hf.co/TeichAI/Qwen3.5-9B-Fable-5-v1-GGUF:Q4_K_M` | Maintain/audit local model (shared with codeq summary) |
 | `CODEQ_NO_LLM` / `PROJECT_MEMORY_NO_LLM` | unset | Skip all Ollama calls (deterministic only) |
+| `AGENT_MEMORY_CLOUD_FALLBACK` | `1` | `maintain` falls back to the ecosystem `cheap_llm` cascade when Ollama is down (`0` disables) |
+| `AGENT_MEMORY_EMBED_READY_TIMEOUT` | `20` | Warm-retry budget (seconds) for the `embed_ready` probe — cold models can exceed the fast 3s probe |
 | `MEMORY_ACTIVE_WINDOW_HOURS` | `6.0` | Freshness window for completed-entry archival |
 | `MEMORY_STALENESS_DAYS` | `14` | Staleness threshold for `auto-maintain-check` |
 
