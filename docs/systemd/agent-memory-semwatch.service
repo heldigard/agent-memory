@@ -16,8 +16,11 @@ After=default.target
 
 [Service]
 Type=simple
-# %i = systemd-escaped project path (e.g. `systemd-escape /home/me/proj`).
-ExecStart=/usr/bin/env agent-memory --root %i semwatch --interval 2 --debounce 1
+# %I = the UNescaped instance name (the real project path). Use %I, not %i:
+# %i leaves the path escaped (hyphens become \x2d), so --root would receive a
+# mangled path. The instance NAME keeps the escaped form (valid filename); %I
+# restores it for the argument.
+ExecStart=/usr/bin/env agent-memory --root %I semwatch --interval 2 --debounce 1
 Restart=on-failure
 RestartSec=10
 # Cheap by design (polling a few dozen markdown files), but keep it polite anyway.

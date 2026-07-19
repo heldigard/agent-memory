@@ -97,3 +97,23 @@ def test_watch_survives_build_errors(bank: Path, monkeypatch, capsys) -> None:
     )
     assert watch(bank, interval=0.01, debounce=0.0) == 0
     assert "no memory bank" in capsys.readouterr().err
+
+
+def test_systemd_unit_uses_unescaped_instance_for_root() -> None:
+    """The %I (not %i) specifier must back --root: %i passes the escaped path
+    (hyphens → \\x2d), so the daemon would receive a mangled project root.
+
+    Regression guard for the systemd template shipped under docs/systemd/.
+    """
+    from pathlib import Path
+
+    unit = (
+        Path(watch_mod.__file__).resolve().parents[4]
+        / "docs"
+        / "systemd"
+        / "agent-memory-semwatch.service"
+    )
+    text = unit.read_text(encoding="utf-8")
+    exec_line = next(line for line in text.splitlines() if line.startswith("ExecStart="))
+    assert "--root %I" in exec_line
+    assert "--root %i" not in exec_line

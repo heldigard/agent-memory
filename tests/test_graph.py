@@ -121,3 +121,78 @@ def test_graph_mixed_corrupt_rows_remains_usable_and_allocates_next_id(capsys, t
     assert "added g_008" in captured.out
     assert "normalizing graph line 1" in captured.err
     assert "skipping graph line 2" in captured.err
+
+
+# --- coverage: warn branches, empty/error paths, alias joins ---
+
+
+def test_graph_add_warns_on_nonstandard_predicate(capsys, tmp_path) -> None:
+    assert graph_add(tmp_path, "A", "WHATEVER", "B") == 0
+    out = capsys.readouterr().out
+    assert "not in standard predicates" in out
+    # still appended
+    assert graph_query(tmp_path, "A") == 0
+
+
+def test_graph_query_no_hits_and_predicate_filter(capsys, tmp_path) -> None:
+    graph_add(tmp_path, "A", "OWNS", "B")
+    # unknown subject -> exit 1, suffix-free message
+    assert graph_query(tmp_path, "Ghost") == 1
+    assert "no triples for subject 'Ghost'" in capsys.readouterr().out
+    # known subject but unknown predicate -> exit 1, predicate-suffixed message
+    assert graph_query(tmp_path, "A", pred="OWED_BY") == 1
+    assert "with predicate OWED_BY" in capsys.readouterr().out
+
+
+def test_graph_join_missing_first_and_second_hop(capsys, tmp_path) -> None:
+    # no DEPENDS_ON edge from start at all
+    assert graph_join(tmp_path, "Start", "DEPENDS_ON", "OWNS") == 1
+    assert "no DEPENDS_ON edges from 'Start'" in capsys.readouterr().out
+
+    # first hop exists, but no second-hop OWNS edge from the intermediate
+    graph_add(tmp_path, "Svc", "DEPENDS_ON", "DB")
+    assert graph_join(tmp_path, "Svc", "DEPENDS_ON", "OWNS") == 1
+    assert "no OWNS edges from intermediate" in capsys.readouterr().out
+
+
+def test_graph_join_resolves_intermediate_via_alias(capsys, tmp_path) -> None:
+    """Second hop matches the intermediate against subject OR aliases."""
+    graph_add(tmp_path, "Svc", "DEPENDS_ON", "DB")
+    # DB is an alias of DataStore, so the OWNS edge from DataStore is reachable
+    graph_add(tmp_path, "DataStore", "OWNS", "Pool", {"aliases": ["DB"]})
+    assert graph_join(tmp_path, "Svc", "DEPENDS_ON", "OWNS") == 0
+    assert "Pool" in capsys.readouterr().out
+
+
+def test_graph_show_empty_graph(capsys, tmp_path) -> None:
+    assert graph_show(tmp_path) == 1
+    assert "empty graph" in capsys.readouterr().out
+
+
+def test_graph_supersede_missing_old_id_returns_2(capsys, tmp_path) -> None:
+    graph_add(tmp_path, "A", "OWNS", "B")  # g_001
+    # new_id exists, old_id does not -> exit 2
+    assert graph_supersede(tmp_path, "g_001", "g_999") == 2
+    assert "superseded id 'g_999' not found" in capsys.readouterr().err
+
+
+def test_graph_stale_when_nothing_superseded(capsys, tmp_path) -> None:
+    graph_add(tmp_path, "A", "OWNS", "B")
+    assert graph_stale(tmp_path) == 0
+    assert "no superseded facts" in capsys.readouterr().out
+
+
+def test_graph_load_warns_on_unreadable_file(tmp_path, capsys, monkeypatch) -> None:
+    """An OSError reading the graph degrades to [] with a stderr warning."""
+    from pathlib import Path
+
+    graph = tmp_path / ".memory-bank" / "decisions.graph.jsonl"
+    graph.parent.mkdir()
+    graph.write_text('{"id":"g_001","s":"A","p":"OWNS","o":"B"}\n', encoding="utf-8")
+    monkeypatch.setattr(
+        Path,
+        "read_text",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("denied")),
+    )
+    assert graph_query(tmp_path, "A") == 1
+    assert "unable to read graph file" in capsys.readouterr().err
