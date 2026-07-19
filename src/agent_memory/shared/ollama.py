@@ -108,7 +108,20 @@ def embed_ready(timeout: float = 3.0, *, model: str = DEFAULT_EMBED_MODEL) -> bo
     ``llama-server`` (or the embed model) is missing — see dead-ends log
     2026-07-17. Uses the same path as :func:`embed` so the probe matches
     production indexing.
+
+    A failed fast probe is retried once with a longer timeout: a cold embed
+    model can take >3s to load into the GPU, and without the retry a cold
+    start masquerades as "tags up / inference broken" (observed 2026-07-19:
+    first ``doctor`` probe failed, the very next call succeeded).
     """
+    if _embed_probe(timeout, model):
+        return True
+    warm = float(os.environ.get("AGENT_MEMORY_EMBED_READY_TIMEOUT", "20"))
+    return _embed_probe(max(warm, timeout), model)
+
+
+def _embed_probe(timeout: float, model: str) -> bool:
+    """Single embed readiness probe."""
     try:
         data = _post("/api/embeddings", {"model": model, "prompt": "ping"}, timeout)
     except (OllamaUnavailable, OllamaRequestError, ValueError):

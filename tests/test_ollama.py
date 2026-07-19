@@ -180,3 +180,29 @@ def test_post_rejects_invalid_scheme(monkeypatch) -> None:
     except ollama.OllamaUnavailable:
         return
     raise AssertionError("expected OllamaUnavailable for invalid scheme")
+
+
+def test_embed_ready_retries_with_longer_timeout_after_fast_failure(monkeypatch) -> None:
+    """Cold embed models can exceed the fast probe timeout; embed_ready must
+    retry once with a longer budget before declaring inference broken."""
+    calls: list[float] = []
+
+    def _flaky(path, payload, timeout):
+        calls.append(timeout)
+        if len(calls) == 1:
+            raise ollama.OllamaRequestError(408, "timeout: cold load")
+        return {"embedding": [0.1, 0.2]}
+
+    monkeypatch.setattr(ollama, "_post", _flaky)
+    monkeypatch.delenv("AGENT_MEMORY_EMBED_READY_TIMEOUT", raising=False)
+    assert ollama.embed_ready(timeout=1.0) is True
+    assert len(calls) == 2
+    assert calls[1] > calls[0]
+
+
+def test_embed_ready_false_when_both_probes_fail(monkeypatch) -> None:
+    def _always_fail(path, payload, timeout):
+        raise ollama.OllamaUnavailable("no daemon")
+
+    monkeypatch.setattr(ollama, "_post", _always_fail)
+    assert ollama.embed_ready(timeout=1.0) is False

@@ -414,3 +414,40 @@ def test_main_survives_append_oserror(clean_env, monkeypatch) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"transcript_path": str(transcript)})))
     # OSError is swallowed; hook returns 0 (never hard-fails on a memory write)
     assert main() == 0
+
+
+def test_subagent_model_env_does_not_disable_tracking(clean_env: Path, monkeypatch) -> None:
+    """Regression 2026-07-19: model-proxy wrappers (kimic/GLM) export
+    CLAUDE_CODE_SUBAGENT_MODEL globally in the MAIN session; when it was part of
+    WORKER_ENV_VARS, decision tracking was silently dead for every proxy session.
+    Claude Code subagents fire SubagentStop (not Stop), so the var must not gate
+    this hook."""
+    monkeypatch.setenv("CLAUDE_CODE_SUBAGENT_MODEL", "k3[1m]")
+    bank = clean_env / ".memory-bank"
+    bank.mkdir()
+    patterns = bank / "systemPatterns.md"
+    patterns.write_text("# Patterns\n", encoding="utf-8")
+
+    transcript = clean_env / "transcript.jsonl"
+    transcript.write_text(
+        json.dumps(
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": ("DECISION: Keep proxy sessions tracked for decision capture."),
+                        }
+                    ],
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"transcript_path": str(transcript)})))
+    assert main() == 0
+    assert "Keep proxy sessions tracked for decision capture" in patterns.read_text(
+        encoding="utf-8"
+    )

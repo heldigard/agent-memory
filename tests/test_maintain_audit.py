@@ -320,3 +320,27 @@ def test_handoff_skips_missing_source_files(tmp_path: Path) -> None:
     out = buf.getvalue()
     assert "## Session Handoff" in out
     assert "Next Steps" in out
+
+
+def test_maintain_cloud_fallback_audit_path(tmp_path: Path, monkeypatch) -> None:
+    """Ollama down + cheap_llm importable → audits still run (cloud fallback).
+
+    Regression: _emit_audit used to early-return on `not ollama_up`, which made
+    the cloud fallback in _best_effort_llm unreachable exactly when it exists
+    for (daemon down)."""
+    monkeypatch.delenv("CODEQ_NO_LLM", raising=False)
+    monkeypatch.delenv("PROJECT_MEMORY_NO_LLM", raising=False)
+    monkeypatch.delenv("AGENT_MEMORY_CLOUD_FALLBACK", raising=False)
+    _seed(tmp_path)
+    monkeypatch.setattr(cmd, "ollama_is_alive", lambda timeout=10.0: False)
+    monkeypatch.setattr(cmd, "_cloud_available", lambda: True)
+    monkeypatch.setattr(cmd, "_audit_file", lambda name, content, no_llm=False: "Stale: none.")
+    import io
+    from contextlib import redirect_stdout
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        maintain(tmp_path, apply_safe=False, no_llm=False)
+    out = buf.getvalue()
+    assert "cloud fallback" in out
+    assert "Stale: none." in out

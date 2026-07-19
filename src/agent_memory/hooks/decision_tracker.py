@@ -42,10 +42,14 @@ QUICK_GATE: re.Pattern[str] = re.compile(
     re.IGNORECASE,
 )
 
+# Worker signals only. ``CLAUDE_CODE_SUBAGENT_MODEL`` is deliberately NOT one:
+# model-proxy wrappers (kimic/GLM) export it globally in the MAIN session to
+# force subagent models, which would silence decision tracking for the whole
+# session. Claude Code subagents fire SubagentStop, not Stop, so this hook
+# never runs in a subagent context anyway.
 WORKER_ENV_VARS: tuple[str, ...] = (
     "CODEX_WORKER",
     "NO_DELEGATE",
-    "CLAUDE_CODE_SUBAGENT_MODEL",
 )
 
 MAX_PATTERNS_LINES: int = 500  # systemPatterns.md budget
