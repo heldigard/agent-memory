@@ -29,10 +29,16 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from agent_memory.features.bank.command import MAX_INJECTED_LINE_CHARS
 from agent_memory.features.semantic.index import index_dir, load_index
 from agent_memory.hooks.budget_guard import collect_warnings
-from agent_memory.shared.config import GRAPH_FILE, TOPICS_DIR
-from agent_memory.shared.entries import _pid_is_alive, _session_pid, parse_entry
+from agent_memory.shared.config import GRAPH_FILE, READ_ORDER, TOPICS_DIR
+from agent_memory.shared.entries import (
+    _pid_is_alive,
+    _session_pid,
+    filter_lines_for_injection,
+    parse_entry,
+)
 from agent_memory.shared.graph import parse_graph_lines
 from agent_memory.shared.ollama import DEFAULT_EMBED_MODEL
 from agent_memory.shared.ollama import embed_ready as ollama_embed_ready
@@ -41,6 +47,10 @@ from agent_memory.shared.paths import bank_dir, iter_memory_files
 
 # Severity ordering used when rendering the human report.
 _SEVERITY_ORDER = {"error": 0, "warn": 1, "info": 2}
+
+# Prefix of each core file that SessionStart injection can emit — mirrors the
+# ``read --per-file-lines`` CLI default (12). Lines past it are never injected.
+_INJECTION_WINDOW_LINES = 12
 
 # ``[[slug]]`` wiki link OR ``(slug.md)`` paren ref. Slug charset matches
 # ``slugify`` (lowercase ascii + digits + dash).
@@ -81,6 +91,7 @@ def run_doctor(root: Path) -> list[Finding]:
         ]
     findings: list[Finding] = []
     findings.extend(_check_budgets(memory))
+    findings.extend(_check_injection_window(memory))
     findings.extend(_check_broken_refs(memory))
     findings.extend(_check_dead_pids(memory))
     findings.extend(_check_index(root, memory))
@@ -106,6 +117,37 @@ def _check_budgets(memory: Path) -> list[Finding]:
                 hint="archive detail to topics/archive/ or split the file",
             )
         )
+    return out
+
+
+def _check_injection_window(memory: Path) -> list[Finding]:
+    """Lines in the SessionStart injection window that will be elided.
+
+    ``read`` injects only the first ``--per-file-lines`` (default 12) visible
+    lines of each core file and elides the middle of any line longer than
+    ``MAX_INJECTED_LINE_CHARS`` — the tail is silently dropped from every
+    session's context. Surface those lines so authors split them instead of
+    losing facts. Historical log lines past the window are never injected, so
+    they are exempt.
+    """
+    out: list[Finding] = []
+    for name in READ_ORDER:
+        path = memory / name
+        if not path.exists():
+            continue
+        lines = filter_lines_for_injection(
+            name, path.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
+        for lineno, line in enumerate(lines[:_INJECTION_WINDOW_LINES], start=1):
+            if len(line) > MAX_INJECTED_LINE_CHARS:
+                out.append(
+                    Finding(
+                        severity="warn",
+                        check="injection-window",
+                        detail=f"{name}:{lineno}: {len(line)} chars > {MAX_INJECTED_LINE_CHARS}",
+                        hint="split into sub-bullets; the tail is elided on SessionStart injection",
+                    )
+                )
     return out
 
 

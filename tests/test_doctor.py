@@ -268,3 +268,32 @@ def test_doctor_clean_index_dir_has_no_tmp_finding(tmp_path: Path) -> None:
     (idx / "vectors.npz").write_bytes(b"")
 
     assert not [f for f in run_doctor(root) if f.check == "index-tmp"]
+
+
+def test_doctor_flags_overlong_line_in_injection_window(tmp_path: Path) -> None:
+    """A >500-char line inside the injectable prefix loses its tail on SessionStart."""
+    root = _seed_min(tmp_path)
+    bank = root / ".memory-bank"
+    (bank / "CONTEXT.md").write_text("# Context\n- " + "x" * 600 + "\n", encoding="utf-8")
+
+    findings = [f for f in run_doctor(root) if f.check == "injection-window"]
+
+    assert len(findings) == 1
+    assert findings[0].severity == "warn"
+    assert "CONTEXT.md:2" in findings[0].detail
+    assert "602 chars > 500" in findings[0].detail
+
+
+def test_doctor_ignores_overlong_line_past_injection_window(tmp_path: Path) -> None:
+    """Historical log lines beyond the injectable prefix are never injected — exempt."""
+    root = _seed_min(tmp_path)
+    bank = root / ".memory-bank"
+    filler = "".join(f"- entry {i}\n" for i in range(15))
+    (bank / "progress.md").write_text("# Progress\n" + filler + "- " + "y" * 700 + "\n")
+
+    assert not [f for f in run_doctor(root) if f.check == "injection-window"]
+
+
+def test_doctor_injection_window_healthy_bank_clean(tmp_path: Path) -> None:
+    root = _seed_min(tmp_path)
+    assert not [f for f in run_doctor(root) if f.check == "injection-window"]
