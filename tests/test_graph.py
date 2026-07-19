@@ -47,6 +47,33 @@ def test_graph_join_two_hop(capsys, tmp_path) -> None:
     assert "ConnectionPool" in capsys.readouterr().out
 
 
+def test_graph_join_skips_superseded_edges(capsys, tmp_path) -> None:
+    root = tmp_path
+    graph_add(root, "Svc", "DEPENDS_ON", "OldDB")
+    graph_add(root, "OldDB", "OWNS", "Pool")
+    graph_add(root, "Svc", "DEPENDS_ON", "NewDB")
+    graph_add(root, "NewDB", "OWNS", "Pool2")
+    assert graph_supersede(root, "g_003", "g_001") == 0
+    assert graph_supersede(root, "g_004", "g_002") == 0
+    capsys.readouterr()  # discard add/supersede chatter; assert on join output only
+    assert graph_join(root, "Svc", "DEPENDS_ON", "OWNS") == 0
+    out = capsys.readouterr().out
+    assert "Pool2" in out
+    assert "OldDB" not in out  # superseded first hop excluded
+
+
+def test_graph_query_and_show_tag_stale(capsys, tmp_path) -> None:
+    root = tmp_path
+    graph_add(root, "A", "DECIDED", "useX")
+    graph_add(root, "A", "DECIDED", "useY")
+    assert graph_supersede(root, "g_002", "g_001") == 0
+    assert graph_query(root, "A") == 0
+    out = capsys.readouterr().out
+    assert "[STALE g_001]" in out  # invalidated fact annotated, still visible
+    assert graph_show(root) == 0
+    assert "[STALE g_001]" in capsys.readouterr().out
+
+
 def test_graph_supersede_and_stale(capsys, tmp_path) -> None:
     root = tmp_path
     graph_add(root, "A", "DECIDED", "useX")

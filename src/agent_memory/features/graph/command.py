@@ -89,6 +89,17 @@ def _subj_matches(row: dict, subject: str) -> bool:
     return subject in (row.get("aliases") or [])
 
 
+def _superseded_ids(rows: list[dict]) -> set[str]:
+    """Ids invalidated by some row's ``supersedes`` list."""
+    return {str(sid) for r in rows for sid in (r.get("supersedes") or [])}
+
+
+def _stale_tag(row: dict, superseded: set[str]) -> str:
+    """`` [STALE -> by]`` tag when the row's id was superseded, else ''."""
+    rid = str(row.get("id") or "")
+    return f"  [STALE {rid}]" if rid in superseded else ""
+
+
 def graph_query(root: Path, subject: str, pred: str | None = None) -> int:
     """Print triples for ``subject`` (alias-aware), optionally filtered by predicate."""
     rows = _graph_load(graph_path(root))
@@ -97,8 +108,12 @@ def graph_query(root: Path, subject: str, pred: str | None = None) -> int:
         suffix = f" with predicate {pred}" if pred else ""
         print(f"no triples for subject '{subject}'{suffix}")
         return 1
+    superseded = _superseded_ids(rows)
     for r in hits:
-        print(f"{r.get('id')}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})  @{r.get('t')}")
+        print(
+            f"{r.get('id')}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})"
+            f"  @{r.get('t')}{_stale_tag(r, superseded)}"
+        )
     return 0
 
 
@@ -108,13 +123,19 @@ def graph_join(root: Path, start: str, pred1: str, pred2: str) -> int:
     Alias-aware on both hops: ``start`` matches a row's ``s`` or any of its
     ``aliases`` (same rule as :func:`graph_query`); the intermediate objects are
     then matched against the second-hop rows' subject-or-aliases too.
+
+    Superseded facts are excluded from both hops: a traversal over an
+    invalidated edge would draw conclusions from a decision that was already
+    retracted (``graph stale`` lists them; ``graph query`` tags them STALE).
     """
     rows = _graph_load(graph_path(root))
-    first = {r["o"] for r in rows if r.get("p") == pred1 and _subj_matches(r, start)}
+    superseded = _superseded_ids(rows)
+    current = [r for r in rows if str(r.get("id") or "") not in superseded]
+    first = {r["o"] for r in current if r.get("p") == pred1 and _subj_matches(r, start)}
     if not first:
         print(f"no {pred1} edges from '{start}'")
         return 1
-    results = [r for r in rows if r.get("p") == pred2 and _obj_matches_subject(r, first)]
+    results = [r for r in current if r.get("p") == pred2 and _obj_matches_subject(r, first)]
     if not results:
         print(f"no {pred2} edges from intermediate {sorted(first)}")
         return 1
@@ -132,17 +153,18 @@ def _obj_matches_subject(row: dict, candidates: set[str]) -> bool:
 
 
 def graph_show(root: Path) -> int:
-    """List all triples."""
+    """List all triples. Superseded rows are tagged STALE (see ``graph stale``)."""
     rows = _graph_load(graph_path(root))
     if not rows:
         print(f"(empty graph — {GRAPH_FILE} not found)")
         return 1
+    superseded = _superseded_ids(rows)
     print(f"{len(rows)} triple(s) in {GRAPH_FILE}:")
     for r in rows:
         sup = f"  SUPERSEDES={r['supersedes']}" if r.get("supersedes") else ""
         ali = f"  aliases={r['aliases']}" if r.get("aliases") else ""
         edge = f"  {r.get('id')}  ({r.get('s')}) -[{r.get('p')}]-> ({r.get('o')})"
-        print(f"{edge}  @{r.get('t')}{sup}{ali}")
+        print(f"{edge}  @{r.get('t')}{sup}{ali}{_stale_tag(r, superseded)}")
     return 0
 
 
