@@ -28,3 +28,4 @@
 - [ ] Keep decision graphs updated as other ecosystem components grow.
 - 2026-07-09T14:51:29Z | status:completed | session:pid:479699 | Review and harden agent-memory sensitive-content memory write behavior and cross-CLI diagnostics after false positives in progress notes.
 - 2026-07-09T15:01:58Z | status:completed | session:pid:580721 | Finalize memory, clean coordination noise, commit, and push agent-memory changes.
+- 2026-07-18: You are auditing /home/eldi/agent-memory (Python CLI package agent-memory). Working directory: /home/eldi/agent-memory. Goals: 1. Run baseline: activate .venv if present, then `pytest -q --tb=line`, `ruff check .`, `ruff format --check .`, `mypy src/agent_memory`. Capture […] (nota truncada; contexto largo → topics/)
