@@ -7,6 +7,7 @@ parent must resolve its OWN bank, not the parent's).
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Iterator
 from pathlib import Path
@@ -38,6 +39,22 @@ def project_root(start: Path | None = None) -> Path:
 def bank_dir(root: Path) -> Path:
     """Return the ``.memory-bank`` path for a project root."""
     return root / ".memory-bank"
+
+
+def hook_root() -> Path:
+    """Project root for harness hooks (Stop / UserPromptSubmit).
+
+    ``CLAUDE_PROJECT_DIR`` wins when set (Claude Code pins it to the session
+    root). Otherwise fall back to :func:`project_root`, which climbs from cwd
+    to the git toplevel — hooks run with cwd set to a NESTED project subdir,
+    so without the climb they silently miss the bank on every non-Claude CLI
+    (Codex/OpenCode/Gemini don't set ``CLAUDE_PROJECT_DIR``). Matches the
+    long-standing behavior of ``decision_tracker._project_root``.
+    """
+    env_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env_dir:
+        return Path(env_dir)
+    return project_root()
 
 
 def file_name(value: str) -> str:

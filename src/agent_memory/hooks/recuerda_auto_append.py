@@ -1,3 +1,5 @@
+# vs-soft-allow: nesting_depth — atomic append-with-trailing-newline guard (try/if/with/if);
+# one responsibility (append a recuerda note); flattening would split a 4-line safe-write.
 """Recuerda auto-append hook.
 
 On UserPromptSubmit, detect Spanish "recuerda" / English "remember" / "don't forget"
@@ -9,12 +11,11 @@ Idempotent: appends only the new note, not the trigger word itself.
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from datetime import datetime
-from pathlib import Path
 
+from agent_memory.shared.paths import hook_root
 from agent_memory.shared.text import redact_secrets
 
 TRIGGERS: list[str] = [
@@ -57,8 +58,7 @@ def main() -> int:
     if "[NO_MEM_APPEND]" in prompt:
         return 0
 
-    project_root = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
-    bank = project_root / ".memory-bank"
+    bank = hook_root() / ".memory-bank"
     active = bank / "activeContext.md"
 
     if not active.exists():

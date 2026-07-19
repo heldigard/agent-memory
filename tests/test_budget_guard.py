@@ -99,3 +99,23 @@ def test_main_no_warning_within_budget(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     assert main() == 0
     assert capsys.readouterr().err == ""
+
+
+def test_main_climbs_git_root_from_nested_cwd(tmp_path, monkeypatch, capsys) -> None:
+    """Without CLAUDE_PROJECT_DIR, a nested cwd must still resolve the bank at
+    the git toplevel and warn (non-Claude CLIs don't set the env var)."""
+    import subprocess
+
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    bank = _make_bank(tmp_path)
+    (bank / "MEMORY.md").write_text(
+        "# m\n" + "\n".join(f"line {i}" for i in range(200)) + "\n", encoding="utf-8"
+    )
+    nested = tmp_path / "src" / "deep"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    assert main() == 0
+    err = capsys.readouterr().err
+    assert "RED" in err and "MEMORY.md" in err

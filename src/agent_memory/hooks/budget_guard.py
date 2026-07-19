@@ -10,11 +10,11 @@ memory-bank-budget-guard.py`` is a backcompat shim that imports :func:`main`.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
 from agent_memory.shared.config import FILES, TOPIC_INDEX_LIMIT, TOPIC_SOFT_LIMIT, TOPICS_DIR
+from agent_memory.shared.paths import hook_root
 from agent_memory.shared.text import line_count
 
 WARN_PCT = 0.80  # 80% threshold for the yellow warning
@@ -73,8 +73,7 @@ def collect_warnings(bank: Path) -> list[str]:
 
 def main() -> int:
     """Print warnings to stderr (advisory; exit 0 always — never blocks Stop)."""
-    project_root = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
-    bank = project_root / ".memory-bank"
+    bank = hook_root() / ".memory-bank"
     if not bank.is_dir():
         return 0  # no memory bank, silent pass
     warnings = collect_warnings(bank)

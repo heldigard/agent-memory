@@ -92,3 +92,23 @@ def test_recuerda_hook_skips_note_that_is_only_a_secret(clean_env: Path, monkeyp
 
     assert main() == 0
     assert active.read_text(encoding="utf-8") == "# Active\n"
+
+
+def test_recuerda_hook_climbs_git_root_from_nested_cwd(tmp_path: Path, monkeypatch) -> None:
+    """Without CLAUDE_PROJECT_DIR, a nested cwd must still find the bank at the
+    git toplevel (non-Claude CLIs don't set the env var)."""
+    import subprocess
+
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    bank = tmp_path / ".memory-bank"
+    bank.mkdir()
+    active = bank / "activeContext.md"
+    active.write_text("# Active\n", encoding="utf-8")
+    nested = tmp_path / "src" / "deep"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"prompt": "recuerda nested path"})))
+    assert main() == 0
+    assert "nested path" in active.read_text(encoding="utf-8")
