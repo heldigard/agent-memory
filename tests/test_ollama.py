@@ -60,6 +60,25 @@ def test_is_alive_false_on_invalid_scheme(monkeypatch) -> None:
     assert ollama.is_alive(timeout=1.0) is False
 
 
+def test_embed_ready_true_on_vector(monkeypatch) -> None:
+    _patch_post(
+        monkeypatch,
+        lambda req, timeout=None: _FakeResp({"embedding": [0.1, 0.2]}),
+    )
+    assert ollama.embed_ready(timeout=1.0) is True
+
+
+def test_embed_ready_false_on_empty_or_error(monkeypatch) -> None:
+    _patch_post(monkeypatch, lambda req, timeout=None: _FakeResp({"embedding": []}))
+    assert ollama.embed_ready(timeout=1.0) is False
+
+    def _raise(req, timeout=None):
+        raise urllib.error.URLError("no daemon")
+
+    _patch_post(monkeypatch, _raise)
+    assert ollama.embed_ready(timeout=1.0) is False
+
+
 def test_generate_returns_response_and_caches(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(ollama, "OLLAMA_CACHE_DIR", tmp_path)
     calls = {"n": 0}

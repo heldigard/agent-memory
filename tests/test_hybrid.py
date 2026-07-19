@@ -212,6 +212,22 @@ def test_pick_candidates_rerank_and_no_rerank_branches() -> None:
     assert scores_rr  # rerank produced scores
 
 
+def test_filter_min_score_keeps_pure_bm25_and_drops_weak_dense() -> None:
+    from agent_memory.features.semantic.hybrid import _filter_min_score
+
+    hits = [
+        {"text": "both", "score": 0.9, "method": "dense+bm25"},
+        {"text": "weak", "score": 0.1, "method": "dense"},
+        {"text": "lex", "score": 0.0, "method": "bm25"},
+    ]
+    filtered = _filter_min_score(hits, 0.5)
+    texts = {h["text"] for h in filtered}
+    assert "both" in texts
+    assert "lex" in texts  # pure BM25 preserved
+    assert "weak" not in texts
+    assert _filter_min_score(hits, 0.0) == hits
+
+
 def test_annotate_hits_tags_overlap_dense_and_bm25_only() -> None:
     inp = PickInputs(
         dense=[(0, 0.8), (1, 0.4)],

@@ -1,6 +1,9 @@
 # systemd user unit — keep one project's semantic index hot with `semwatch`.
 #
-# Install (per project, no root needed):
+# Preferred install (per project, no root needed):
+#   bash docs/systemd/install-semwatch.sh /path/to/project
+#
+# Manual install:
 #   mkdir -p ~/.config/systemd/user
 #   cp docs/systemd/agent-memory-semwatch.service ~/.config/systemd/user/agent-memory-semwatch@.service
 #   systemctl --user daemon-reload

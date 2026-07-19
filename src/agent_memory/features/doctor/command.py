@@ -34,6 +34,8 @@ from agent_memory.hooks.budget_guard import collect_warnings
 from agent_memory.shared.config import GRAPH_FILE, TOPICS_DIR
 from agent_memory.shared.entries import _pid_is_alive, _session_pid, parse_entry
 from agent_memory.shared.graph import parse_graph_lines
+from agent_memory.shared.ollama import DEFAULT_EMBED_MODEL
+from agent_memory.shared.ollama import embed_ready as ollama_embed_ready
 from agent_memory.shared.ollama import is_alive as ollama_is_alive
 from agent_memory.shared.paths import bank_dir, iter_memory_files
 
@@ -300,7 +302,6 @@ def _check_index(root: Path, memory: Path) -> list[Finding]:
 
     # Check sidecar files for mismatched version/model
     from agent_memory.shared.config import EMBED_MODEL_FILE, INDEX_VERSION, VERSION_FILE
-    from agent_memory.shared.ollama import DEFAULT_EMBED_MODEL
 
     stored_model = ""
     stored_version = ""
@@ -333,19 +334,42 @@ def _check_index(root: Path, memory: Path) -> list[Finding]:
             )
         )
 
+    out.extend(_check_ollama_health())
+    return out
+
+
+def _check_ollama_health() -> list[Finding]:
+    """Layered Ollama health: tags liveness, then real embed inference.
+
+    Tags-only checks miss partial installs where ``/api/tags`` answers but
+    ``/api/embeddings`` 500s (no llama-server / missing model). That incident
+    is recorded in the project dead-ends log (2026-07-17).
+    """
     if not ollama_is_alive():
-        out.append(
+        return [
             Finding(
                 severity="info",
                 check="index",
                 detail="ollama daemon not reachable — semantic ops will degrade to keyword",
                 hint=(
-                    "start ollama (with `embeddinggemma` + "
-                    "`cryptidbleh/gemma4-claude-opus-4.6:latest`) to re-enable"
+                    "start ollama (with `embeddinggemma` + the configured generate model) "
+                    "to re-enable dense retrieval"
                 ),
             )
+        ]
+    if ollama_embed_ready():
+        return []
+    return [
+        Finding(
+            severity="warn",
+            check="ollama-embed",
+            detail=(
+                "ollama tags endpoint is up but /api/embeddings failed "
+                f"(model={DEFAULT_EMBED_MODEL}) — index builds will skip chunks"
+            ),
+            hint=("repair the ollama install / pull embeddinggemma; tags up ≠ inference up"),
         )
-    return out
+    ]
 
 
 def _check_graph(memory: Path) -> list[Finding]:

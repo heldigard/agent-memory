@@ -87,7 +87,11 @@ def _gen_timeout() -> float:
 
 
 def is_alive(timeout: float = 2.0) -> bool:
-    """True iff the daemon answers ``/api/tags`` quickly."""
+    """True iff the daemon answers ``/api/tags`` quickly.
+
+    Cheap liveness only — a partial install can serve tags while inference is
+    broken. Prefer :func:`embed_ready` before trusting semantic index builds.
+    """
     try:
         req = urllib.request.Request(f"{_base_url()}/api/tags", method="GET")
         # nosemgrep
@@ -95,6 +99,22 @@ def is_alive(timeout: float = 2.0) -> bool:
             return resp.status == 200
     except (ValueError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
         return False
+
+
+def embed_ready(timeout: float = 3.0, *, model: str = DEFAULT_EMBED_MODEL) -> bool:
+    """True iff a short ``/api/embeddings`` call returns a non-empty vector.
+
+    Catches the known failure mode where ``/api/tags`` is healthy but
+    ``llama-server`` (or the embed model) is missing — see dead-ends log
+    2026-07-17. Uses the same path as :func:`embed` so the probe matches
+    production indexing.
+    """
+    try:
+        data = _post("/api/embeddings", {"model": model, "prompt": "ping"}, timeout)
+    except (OllamaUnavailable, OllamaRequestError, ValueError):
+        return False
+    vec = data.get("embedding")
+    return isinstance(vec, list) and len(vec) > 0
 
 
 def _normalize(url: str) -> str:

@@ -258,9 +258,16 @@ def hybrid_search(
     query: str,
     k: int = DEFAULT_K,
     do_rerank: bool = False,
+    min_score: float = 0.0,
 ) -> list[dict]:
     """BM25 + dense fused via RRF. Each hit carries ``method`` (dense+bm25/bm25/dense)
-    and a dense ``score``. Empty only if the index is empty or no retriever matches."""
+    and a dense ``score``. Empty only if the index is empty or no retriever matches.
+
+    ``min_score`` filters on dense cosine when a dense signal exists. Pure BM25
+    hits (score 0, method ``bm25``) are kept — there is no calibrated dense
+    score to compare, and dropping them would silently empty hybrid when Ollama
+    is down. Set ``min_score=0`` (default) to disable the dense filter.
+    """
     if not manifest:
         return []
     pool = max(HYBRID_POOL, k * 4)
@@ -272,7 +279,22 @@ def hybrid_search(
         dense=dense, bm25=bm25, manifest=manifest, query=query, k=k, do_rerank=do_rerank
     )
     chosen, rerank_scores = _pick_candidates(inp)
-    return _annotate_hits(chosen, inp, rerank_scores)
+    hits = _annotate_hits(chosen, inp, rerank_scores)
+    return _filter_min_score(hits, min_score)
+
+
+def _filter_min_score(hits: list[dict], min_score: float) -> list[dict]:
+    """Drop dense-ranked hits below ``min_score``; keep pure BM25 and unscored."""
+    if min_score <= 0:
+        return hits
+    out: list[dict] = []
+    for hit in hits:
+        score = float(hit.get("score") or 0.0)
+        method = str(hit.get("method") or "")
+        # Pure BM25 has dense score 0 by construction — no cosine to threshold.
+        if (method == "bm25" and score == 0.0) or score >= min_score:
+            out.append(hit)
+    return out
 
 
 @dataclass

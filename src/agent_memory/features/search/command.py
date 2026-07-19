@@ -6,6 +6,7 @@ search lives in ``features/semantic``; this is the fast grep-style fallback.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -27,23 +28,40 @@ def _line_matches(line: str, terms: list[str]) -> bool:
 
 
 def search_memory(
-    root: Path, query: str, max_results: int = 20, *, include_inactive: bool = False
+    root: Path,
+    query: str,
+    max_results: int = 20,
+    *,
+    include_inactive: bool = False,
+    json_out: bool = False,
 ) -> None:
     """Search core and topic memory files; print matches as ``rel:line: text``."""
     memory = bank_dir(root)
     if not memory.exists():
+        if json_out:
+            print(json.dumps({"query": query, "count": 0, "results": []}))
         return
-    print(f"## Memory Search: {query}")
     terms = _query_terms(query)
-    results = 0
+    matches: list[dict[str, object]] = []
     for rel, lineno, line in iter_all_lines(memory):
         if not include_inactive and is_inactive_search_line(line):
             continue
         if not _line_matches(line, terms):
             continue
-        print(f"- {rel}:{lineno}: {line[:220]}")
-        results += 1
-        if results >= max_results:
-            return
-    if results == 0:
+        matches.append({"file": rel, "line": lineno, "text": line[:220]})
+        if len(matches) >= max_results:
+            break
+    if json_out:
+        print(
+            json.dumps(
+                {"query": query, "count": len(matches), "results": matches},
+                ensure_ascii=False,
+            )
+        )
+        return
+    print(f"## Memory Search: {query}")
+    if not matches:
         print("- no matches")
+        return
+    for m in matches:
+        print(f"- {m['file']}:{m['line']}: {m['text']}")

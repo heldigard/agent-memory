@@ -99,6 +99,27 @@ def test_cmd_search_hybrid_path(tmp_path: Path, monkeypatch, capsys) -> None:
     assert "## Semantic Memory Search: auth" in capsys.readouterr().out
 
 
+def test_cmd_search_json_and_min_score(tmp_path: Path, monkeypatch, capsys) -> None:
+    _patch_embed(monkeypatch)
+    _seed_bank(tmp_path)
+    index_mod.build_index(tmp_path, rebuild=False)
+    monkeypatch.setattr(cmd_mod, "ollama_is_alive", lambda: True)
+    capsys.readouterr()  # drain init_memory / index stdout before JSON parse
+    rc = cmd_search(tmp_path, "auth", 5, SearchOpts(min_score=0.1, json_out=True))
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["query"] == "auth"
+    assert payload["count"] >= 1
+    assert isinstance(payload["results"], list)
+    # Impossible cosine threshold empties dense/hybrid hits that carry a score.
+    rc = cmd_search(tmp_path, "auth", 5, SearchOpts(min_score=0.99, json_out=True))
+    assert rc == 0
+    high = json.loads(capsys.readouterr().out)
+    assert high["count"] == 0 or all(
+        float(r.get("score") or 0) >= 0.99 or r.get("method") == "bm25" for r in high["results"]
+    )
+
+
 def test_cmd_search_keyword_fallback_when_ollama_down(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_embed(monkeypatch)
     _seed_bank(tmp_path)
@@ -149,12 +170,20 @@ def test_cmd_status_text_and_json(tmp_path: Path, monkeypatch, capsys) -> None:
     _seed_bank(tmp_path)
     index_mod.build_index(tmp_path, rebuild=False)
     monkeypatch.setattr(cmd_mod, "ollama_is_alive", lambda: True)
+    import agent_memory.features.semantic.status as status_mod
+
+    monkeypatch.setattr(status_mod, "ollama_is_alive", lambda: True)
+    monkeypatch.setattr(status_mod, "ollama_embed_ready", lambda: True)
     assert cmd_status(tmp_path) == 0
     assert "memory_dir" in capsys.readouterr().out
     assert cmd_status(tmp_path, json_out=True) == 0
     snapshot = json.loads(capsys.readouterr().out)
     assert snapshot["exists"] is True
     assert snapshot["indexed_chunks"] > 0
+    assert snapshot["vector_dim"] == 3  # mock embed is 3-d
+    assert snapshot["ollama_embed_ready"] is True
+    assert "embed_model" in snapshot
+    assert "index_version" in snapshot
 
 
 def test_cmd_status_hints_refresh_when_stale(tmp_path: Path, monkeypatch, capsys) -> None:

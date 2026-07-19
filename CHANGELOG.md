@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `ollama.embed_ready()` — probes `/api/embeddings` (not just `/api/tags`) so doctor
+  and `semstatus` detect partial Ollama installs where tags answer but inference is
+  broken (the 2026-07-17 dead-end). Doctor emits `ollama-embed` warn when tags-up/embed-down.
+- `semstatus` now reports `vector_dim`, `embed_model`, `index_version`, and
+  `ollama_embed_ready` (README dim claim was previously unmet).
+- `search --json` and `semsearch --json` for machine-readable hook/automation output.
+- Hybrid `semsearch` honors `--min-score` (was ignored on the default non-`--dense` path;
+  pure BM25 hits are preserved when dense score is absent).
+- `docs/systemd/install-semwatch.sh` — one-shot Ubuntu-native user-unit installer for
+  always-on `semwatch`.
 - `semwatch` subcommand — debounced stdlib polling of `.memory-bank` that triggers
   incremental reindex on change (same `flock` build lock as `semindex`; Ctrl-C exits
   cleanly). Systemd user unit template at `docs/systemd/agent-memory-semwatch.service`.
 - `semstatus --json` — machine-readable index health snapshot, matching the `--json`
   parity of `status`/`doctor`/`auto-maintain-check` for hook and quota tooling.
+
+### Changed
+- README `CODEQ_SUMMARY_MODEL` default aligned with runtime
+  `MAINT_MODEL_DEFAULT` (TeichAI Qwen3.5-9B-Fable-5).
 
 ### Fixed
 - Automatic remember/decision hooks now redact credential-shaped values through the canonical

@@ -29,6 +29,7 @@ class SearchOpts:
     dense: bool = False
     do_rerank: bool = False
     include_inactive: bool = False
+    json_out: bool = False
 
 
 def cmd_index(root: Path, rebuild: bool) -> int:
@@ -61,15 +62,38 @@ def cmd_index(root: Path, rebuild: bool) -> int:
 
 def cmd_search(root: Path, query: str, k: int, opts: SearchOpts) -> int:
     vectors, manifest = load_index(index_dir(root))
+    used_fallback = False
     if opts.dense:
         records = dense_search(root, query, k=k, min_score=opts.min_score)
     else:
-        records = hybrid_search(vectors, manifest, query, k=k, do_rerank=opts.do_rerank)
+        records = hybrid_search(
+            vectors,
+            manifest,
+            query,
+            k=k,
+            do_rerank=opts.do_rerank,
+            min_score=opts.min_score,
+        )
     if not records and not ollama_is_alive():
         records = keyword_fallback(root, query, k=k, include_inactive=opts.include_inactive)
-        print("[Ollama down — using keyword fallback]", file=sys.stderr)
+        used_fallback = True
+        if not opts.json_out:
+            print("[Ollama down — using keyword fallback]", file=sys.stderr)
     if not opts.include_inactive:
         records = _filter_inactive_records(records)
+    if opts.json_out:
+        print(
+            json.dumps(
+                {
+                    "query": query,
+                    "count": len(records),
+                    "fallback": used_fallback,
+                    "results": records,
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0
     _print_records(records, query)
     return 0
 

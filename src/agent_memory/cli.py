@@ -125,6 +125,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     search.add_argument(
         "--include-inactive", action="store_true", help="include superseded historical entries"
     )
+    search.add_argument("--json", action="store_true", help="Emit matches as JSON")
 
     sem = sub.add_parser("semsearch", help="Semantic search (local Ollama embeddings)")
     sem.add_argument("query")
@@ -135,6 +136,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sem.add_argument(
         "--include-inactive", action="store_true", help="include superseded historical entries"
     )
+    sem.add_argument("--json", action="store_true", help="Emit hits as JSON")
 
     semindex = sub.add_parser("semindex", help="Build/update the per-project semantic index")
     semindex.add_argument("--rebuild", action="store_true")
@@ -262,6 +264,7 @@ def main() -> int:
             args.query,
             max_results=args.max_results,
             include_inactive=args.include_inactive,
+            json_out=args.json,
         )
         return 0
     if cmd == "semsearch":
@@ -271,7 +274,13 @@ def main() -> int:
             root,
             args.query,
             args.k,
-            SearchOpts(args.min_score, args.dense, args.rerank, args.include_inactive),
+            SearchOpts(
+                args.min_score,
+                args.dense,
+                args.rerank,
+                args.include_inactive,
+                args.json,
+            ),
         )
     if cmd == "semindex":
         from agent_memory.features.semantic.command import cmd_index

@@ -63,6 +63,20 @@ def test_keyword_search_finds_added_text(tmp_path) -> None:
     assert "payments microservice" in buf.getvalue()
 
 
+def test_keyword_search_json_output(tmp_path) -> None:
+    import json
+
+    init_memory(tmp_path)
+    add_entry(tmp_path, "progress", "deployed payments microservice")
+    buf = StringIO()
+    with redirect_stdout(buf):
+        search_memory(tmp_path, "payments microservice", json_out=True)
+    payload = json.loads(buf.getvalue())
+    assert payload["count"] >= 1
+    assert payload["results"][0]["file"] == "progress.md"
+    assert "payments" in payload["results"][0]["text"]
+
+
 def test_keyword_search_hides_superseded_unless_requested(tmp_path) -> None:
     init_memory(tmp_path)
     add_entry(tmp_path, "progress", "Crow is the primary model", status="superseded")

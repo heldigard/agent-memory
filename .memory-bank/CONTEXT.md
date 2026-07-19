@@ -11,5 +11,7 @@
 - `status`/`doctor`/`auto-maintain-check` all emit `--json` for hook/quota consumption.
 - Automatic remember/decision hooks share canonical credential redaction; graph JSONL parsing skips
   invalid core rows, normalizes optional metadata, and feeds doctor schema diagnostics.
-- Tests: 206, ruff+mypy+VS-guard clean. Editable install: `uv pip install -e ".[test]"`.
+- Tests: 370+ (Ubuntu-native pass: semwatch, embed_ready, search/semsearch --json, hybrid min-score). ruff+mypy clean. Editable install: `uv pip install -e ".[test]"`.
+- Ollama health is layered: `is_alive` = `/api/tags`; `embed_ready` = real `/api/embeddings` probe (doctor + semstatus).
 - Shim contract: `~/.claude/scripts/project-memory.py` delegates to `~/.local/bin/agent-memory`.
+- Ubuntu always-on: `docs/systemd/install-semwatch.sh` installs user unit for `semwatch`.

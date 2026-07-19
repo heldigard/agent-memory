@@ -109,6 +109,50 @@ def test_doctor_json_output_round_trips(tmp_path: Path, capsys) -> None:
     assert rc == 0
 
 
+def test_doctor_warns_when_tags_up_but_embed_fails(tmp_path: Path, monkeypatch) -> None:
+    """Partial Ollama installs: /api/tags OK, /api/embeddings broken."""
+    import agent_memory.features.doctor.command as doctor_mod
+
+    root = _seed_min(tmp_path)
+    # Force the index path past "no index" so ollama health is evaluated.
+    bank = root / ".memory-bank"
+    idx = bank / ".index"
+    idx.mkdir(exist_ok=True)
+    import numpy as np
+
+    np.savez(idx / "vectors.npz", vectors=np.zeros((1, 3), dtype=np.float32))
+    (idx / "manifest.json").write_text(
+        '[{"file":"MEMORY.md","mtime":0,"heading":"","start":1,"end":1,"sha256":"x","text":"hi"}]',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(doctor_mod, "ollama_is_alive", lambda: True)
+    monkeypatch.setattr(doctor_mod, "ollama_embed_ready", lambda: False)
+    findings = run_doctor(root)
+    embed = [f for f in findings if f.check == "ollama-embed"]
+    assert embed, findings
+    assert embed[0].severity == "warn"
+    assert "embeddings" in embed[0].detail
+
+
+def test_doctor_info_when_ollama_down(tmp_path: Path, monkeypatch) -> None:
+    import agent_memory.features.doctor.command as doctor_mod
+
+    root = _seed_min(tmp_path)
+    bank = root / ".memory-bank"
+    idx = bank / ".index"
+    idx.mkdir(exist_ok=True)
+    import numpy as np
+
+    np.savez(idx / "vectors.npz", vectors=np.zeros((1, 3), dtype=np.float32))
+    (idx / "manifest.json").write_text(
+        '[{"file":"MEMORY.md","mtime":0,"heading":"","start":1,"end":1,"sha256":"x","text":"hi"}]',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(doctor_mod, "ollama_is_alive", lambda: False)
+    findings = run_doctor(root)
+    assert any(f.check == "index" and "not reachable" in f.detail for f in findings)
+
+
 def test_doctor_harness_integration_missing(tmp_path: Path, monkeypatch) -> None:
     # Point home to a temp dir so that the shims check doesn't find them and reports warnings.
     fake_home = tmp_path / "fake_home"

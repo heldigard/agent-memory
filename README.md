@@ -32,17 +32,19 @@ agent-memory add --file progress --text "shipped X" --status completed
 agent-memory topic --name auth-flow --text "..."
 agent-memory search "auth token"      # current keyword results; hides superseded entries
 agent-memory search "auth token" --include-inactive  # historical audit
+agent-memory search "auth token" --json              # machine-readable matches
 agent-memory supersede-entry "old model decision" --file progress.md
 
 # Semantic (local Ollama embeddings; degrades to keyword when daemon down)
 agent-memory semindex                 # build/update the embedding index
 agent-memory semindex --rebuild       # force full re-embed
-agent-memory semstatus                # index health (chunks, dim, staleness)
+agent-memory semstatus                # index health (chunks, dim, model, embed readiness)
 agent-memory semstatus --json         # machine-readable health snapshot (hooks/quota)
 agent-memory semclean                 # purge orphan embeddings + compact
 agent-memory semwatch                 # poll the bank and reindex on change (Ctrl-C stops)
 agent-memory semwatch --interval 5 --debounce 2   # slower, quieter polling
 agent-memory semsearch "cross-cli handoff" --min-score 0.25
+agent-memory semsearch "handoff" --json               # hits as JSON
 agent-memory semsearch "old decision" --include-inactive  # include superseded chunks
 agent-memory semrecall                # SessionStart recall from currentTask.md
 agent-memory semrecall --query "cross-cli handoff" --min-score 0.35  # active re-query
@@ -80,18 +82,22 @@ agent-memory status --json            # bank snapshot for hooks/quota tooling
 |---|---|---|
 | `AGENT_MEMORY_OLLAMA_URL` | `http://localhost:11434` | Daemon URL override |
 | `AGENT_MEMORY_EMBED_WORKERS` | `4` | Parallel embed threads for `semindex` (set `1` for serial) |
-| `CODEQ_SUMMARY_MODEL` | `batiai/gemma4-e4b:q4` | Maintain/audit local model |
+| `CODEQ_SUMMARY_MODEL` | `hf.co/TeichAI/Qwen3.5-9B-Fable-5-v1-GGUF:Q4_K_M` | Maintain/audit local model (shared with codeq summary) |
 | `CODEQ_NO_LLM` / `PROJECT_MEMORY_NO_LLM` | unset | Skip all Ollama calls (deterministic only) |
 | `MEMORY_ACTIVE_WINDOW_HOURS` | `6.0` | Freshness window for completed-entry archival |
 | `MEMORY_STALENESS_DAYS` | `14` | Staleness threshold for `auto-maintain-check` |
 
-### Always-on indexing (Linux)
+### Always-on indexing (Linux / Ubuntu native)
 
 `semwatch` keeps the index hot while agents edit the bank: stdlib mtime polling
 (no inotify dependency), debounced, serialized through the same `flock` build
-lock as `semindex`. A ready-made systemd **user** unit template lives at
-`docs/systemd/agent-memory-semwatch.service` — install instructions are in the
-file header.
+lock as `semindex`. Systemd **user** unit template:
+`docs/systemd/agent-memory-semwatch.service`. One-shot installer:
+
+```bash
+bash docs/systemd/install-semwatch.sh /path/to/project
+# logs: journalctl --user -u 'agent-memory-semwatch@*' -f
+```
 
 
 ## Architecture
