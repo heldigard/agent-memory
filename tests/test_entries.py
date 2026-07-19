@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 
 from agent_memory.features.entries.command import (
@@ -15,6 +16,19 @@ from agent_memory.features.entries.command import (
     supersede_entry,
     topic_path,
     validate_status,
+)
+from agent_memory.shared import entries as entries_mod
+from agent_memory.shared.entries import (
+    _coord_age_seconds,
+    _coord_time,
+    _coord_window_minutes,
+    _entry_age_hours,
+    _parse_iso,
+    _pid_is_alive,
+    _session_pid,
+    archive_window_hours,
+    injection_window_hours,
+    is_stale_coordination_line,
 )
 
 
@@ -162,3 +176,177 @@ def test_supersede_entry_refuses_ambiguous_match(tmp_path, capsys) -> None:
     capsys.readouterr()
     assert supersede_entry(tmp_path, "model decision") == 2
     assert "matched 2 entries" in capsys.readouterr().err
+
+
+# --- shared/entries.py internal branches (coverage) ---
+
+
+def test_entry_age_hours_handles_missing_invalid_valid() -> None:
+    assert _entry_age_hours(None) is None
+    assert _entry_age_hours("") is None
+    assert _entry_age_hours("not-a-date") is None
+    age = _entry_age_hours("2026-07-18T00:00:00Z")
+    assert age is not None and age >= 0
+
+
+def test_coord_window_minutes_env_parse_and_fallback(monkeypatch) -> None:
+    monkeypatch.delenv("MEMORY_COORD_TEST_MIN", raising=False)
+    assert _coord_window_minutes("MEMORY_COORD_TEST_MIN", 7.5) == 7.5
+    monkeypatch.setenv("MEMORY_COORD_TEST_MIN", "3")
+    assert _coord_window_minutes("MEMORY_COORD_TEST_MIN", 7.5) == 3.0
+    monkeypatch.setenv("MEMORY_COORD_TEST_MIN", "garbage")
+    assert _coord_window_minutes("MEMORY_COORD_TEST_MIN", 7.5) == 7.5
+    monkeypatch.setenv("MEMORY_COORD_TEST_MIN", "-2")
+    assert _coord_window_minutes("MEMORY_COORD_TEST_MIN", 7.5) == 0.0
+
+
+def test_coord_time_and_parse_iso_invalid() -> None:
+    assert _coord_time(None) is None
+    assert _coord_time("") is None
+    assert _coord_time('  "bad"  ') is None
+    assert _parse_iso("nonsense") is None
+    parsed = _parse_iso("2026-07-18T12:00:00Z")
+    assert parsed is not None and parsed.year == 2026
+
+
+def test_coord_age_seconds_none_for_unparseable() -> None:
+    assert _coord_age_seconds(None) is None
+    assert _coord_age_seconds("not-a-date") is None
+    assert _coord_age_seconds("2019-01-01T00:00:00Z") is not None
+
+
+def test_archive_and_injection_window_env_overrides(monkeypatch) -> None:
+    monkeypatch.setenv("MEMORY_ACTIVE_WINDOW_HOURS", "99")
+    assert archive_window_hours() == 99.0
+    monkeypatch.setenv("MEMORY_ACTIVE_WINDOW_HOURS", "nope")
+    assert archive_window_hours() == entries_mod.DEFAULT_ARCHIVE_WINDOW_HOURS
+    monkeypatch.setenv("MEMORY_INJECTION_ACTIVE_WINDOW_HOURS", "5")
+    assert injection_window_hours() == 5.0
+    monkeypatch.setenv("MEMORY_INJECTION_ACTIVE_WINDOW_HOURS", "nope")
+    assert injection_window_hours() == entries_mod.DEFAULT_INJECTION_WINDOW_HOURS
+
+
+def test_session_pid_parses_chained_pid_prefix_and_rejects_garbage() -> None:
+    assert _session_pid(None) is None
+    assert _session_pid("not-a-session") is None
+    assert _session_pid("pid:abc") is None  # regex requires digits
+    assert _session_pid("pid:123") == 123
+    assert _session_pid("pid:pid:42") == 42  # (?:pid:)+ allows chained prefix
+
+
+def test_pid_is_alive_self_true_dead_false(monkeypatch) -> None:
+    assert _pid_is_alive(os.getpid()) is True
+    assert _pid_is_alive(999_999_999) is False  # almost certainly unused
+
+    def raise_perm(pid, sig):
+        raise PermissionError("no rights")
+
+    monkeypatch.setattr(entries_mod.os, "kill", raise_perm)
+    assert _pid_is_alive(1) is True  # PermissionError => process exists, not ours
+
+    def raise_os(pid, sig):
+        raise OSError("bad")
+
+    monkeypatch.setattr(entries_mod.os, "kill", raise_os)
+    assert _pid_is_alive(1) is False
+
+
+def test_is_stale_coordination_line_branches() -> None:
+    # plain prose without agent: marker -> never stale
+    assert is_stale_coordination_line("# heading") is False
+    # agent line with no parseable ts -> not stale (left intact)
+    assert is_stale_coordination_line("- not-a-date | agent:claude") is False
+    # completed with an unparseable ended -> age None -> stale
+    assert (
+        is_stale_coordination_line(
+            "- 2026-07-19T00:00:00Z | agent:claude | status:completed | ended:bad"
+        )
+        is True
+    )
+    # completed long ago -> stale
+    assert (
+        is_stale_coordination_line(
+            "- 2026-07-19T00:00:00Z | agent:claude | status:completed | ended:2019-01-01T00:00:00Z"
+        )
+        is True
+    )
+    # active with a dead pid -> stale regardless of heartbeat
+    assert (
+        is_stale_coordination_line(
+            "- 2026-07-19T00:00:00Z | agent:claude | pid:999999999 | status:active "
+            '| heartbeat:2026-07-19T00:00:00Z | task:"work"'
+        )
+        is True
+    )
+    # active with an unparseable heartbeat -> age None -> stale
+    assert (
+        is_stale_coordination_line(
+            "- 2026-07-19T00:00:00Z | agent:claude | status:active | heartbeat:bad"
+        )
+        is True
+    )
+    # empty active (no task claim) with a stale pid: prefix -> stale past 60s
+    assert (
+        is_stale_coordination_line(
+            "- 2019-01-01T00:00:00Z | agent:claude | pid:pid:999999999 | status:active | task:none."
+        )
+        is True
+    )
+    # empty active whose pid field does not resolve to a real PID still trips
+    # the 60s "empty active" guard (not the dead-pid branch)
+    assert (
+        is_stale_coordination_line(
+            "- 2019-01-01T00:00:00Z | agent:claude | pid:pid: | status:active | task:none."
+        )
+        is True
+    )
+
+
+def test_filter_lines_for_injection_env_bypass_and_topics(monkeypatch) -> None:
+    lines = ["- 2019-01-01T00:00:00Z | status:superseded | old"]
+    # opt-out: env disables filtering entirely
+    monkeypatch.setenv("MEMORY_FILTER_STALE_ACTIVE", "0")
+    assert filter_lines_for_injection("activeContext.md", lines) == lines
+    monkeypatch.setenv("MEMORY_FILTER_STALE_ACTIVE", "1")
+
+    # topics/_index.md strips operational-topic reference rows but keeps others
+    index_lines = [
+        "- [auth](auth.md)",
+        "- [sessions](agent-sessions.md)",
+        "- [handoffs](session-handoffs.md)",
+    ]
+    filtered = filter_lines_for_injection("topics/_index.md", index_lines)
+    assert "- [auth](auth.md)" in filtered
+    assert "agent-sessions.md" not in filtered
+    assert "session-handoffs.md" not in filtered
+
+    # agent-sessions.md drops stale registry records
+    active_lines = [
+        "- 2019-01-01T00:00:00Z | agent:claude | status:active | heartbeat:bad",
+        "# keep",
+    ]
+    sessions = filter_lines_for_injection("agent-sessions.md", active_lines)
+    assert sessions == ["# keep"]
+
+
+def test_is_protected_from_archive_completed_recent_vs_old() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+
+    def _ts(delta: timedelta) -> str:
+        return (now - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    recent = f"- {_ts(timedelta(minutes=1))} | status:completed | shipped just now"
+    assert is_protected_from_archive(recent) is True  # within archive window
+    old = f"- {_ts(timedelta(days=400))} | status:completed | shipped long ago"
+    assert is_protected_from_archive(old) is False  # past window -> archivable
+    undated = "- not-a-date | status:completed | unknown age"
+    assert is_protected_from_archive(undated) is True  # unknown age -> protect
+    # a historical status (not in NEVER_ARCHIVED, not completed) is archivable
+    assert is_protected_from_archive("- 2019-01-01T00:00:00Z | status:superseded | old") is False
+    assert is_protected_from_archive("- prose with no status") is False
+
+
+def test_is_duplicate_missing_file(tmp_path) -> None:
+    assert is_duplicate(tmp_path / "absent.md", "anything") is False
