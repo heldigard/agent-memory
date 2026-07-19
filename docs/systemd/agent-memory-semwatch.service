@@ -22,6 +22,9 @@ Type=simple
 # User units do not inherit a login shell PATH — without ~/.local/bin the
 # console script from `uv pip install --user` / hatch is invisible (exit 127).
 Environment=PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+# Python block-buffers stdout when it is not a TTY — without this, `semwatch:`
+# build lines sit in the buffer and journalctl shows nothing but stderr.
+Environment=PYTHONUNBUFFERED=1
 # %I = the UNescaped instance name (the real project path). Use %I, not %i:
 # %i leaves the path escaped (hyphens become \x2d), so --root would receive a
 # mangled path. The instance NAME keeps the escaped form (valid filename); %I
