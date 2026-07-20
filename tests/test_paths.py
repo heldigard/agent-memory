@@ -22,6 +22,35 @@ def test_project_root_falls_back_to_cwd_without_git(tmp_path: Path, monkeypatch)
     assert project_root(None) == tmp_path.resolve()
 
 
+def test_project_root_honors_claude_project_dir(tmp_path: Path, monkeypatch) -> None:
+    """CLAUDE_PROJECT_DIR anchors the CLI resolution when no explicit start is
+    given, resisting cwd-drift into an unrelated git repo.
+
+    Regression: 2026-07-20 a ``cd ~/.gemini`` left cwd inside a git-rooted config
+    repo, so the bare CLI climbed to its toplevel and wrote a parasite bank.
+    """
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    session_root = tmp_path / "session"
+    session_root.mkdir()
+    drifted = tmp_path / "drifted-repo"
+    drifted.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=drifted, check=True)
+    monkeypatch.chdir(drifted)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(session_root))
+    assert project_root(None).resolve() == session_root.resolve()
+
+
+def test_project_root_explicit_start_wins_over_env(tmp_path: Path, monkeypatch) -> None:
+    """An explicit start dir wins over CLAUDE_PROJECT_DIR (caller knows its target)."""
+    other = tmp_path / "session-env"
+    other.mkdir()
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(other))
+    explicit = tmp_path / "explicit"
+    explicit.mkdir()
+    (explicit / ".memory-bank").mkdir()
+    assert project_root(explicit).resolve() == explicit.resolve()
+
+
 def test_project_root_climbs_to_git_toplevel(tmp_path: Path) -> None:
     """A bank-less dir inside a git repo resolves to the git toplevel."""
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

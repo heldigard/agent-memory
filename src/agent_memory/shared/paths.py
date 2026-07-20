@@ -16,8 +16,19 @@ from agent_memory.shared.config import FILE_ALIASES, FILES, TOPICS_DIR
 
 
 def project_root(start: Path | None = None) -> Path:
-    """Resolve the project root: explicit bank here → here; else git toplevel;
-    else the start dir. Never climbs past an existing bank at ``start``."""
+    """Resolve the project root: ``CLAUDE_PROJECT_DIR`` (when no explicit start)
+    → bank here → git toplevel; else the start dir. Never climbs past an
+    existing bank at ``start``.
+
+    Honoring ``CLAUDE_PROJECT_DIR`` anchors the direct CLI (``add``/``read``/...)
+    to the real session root even when cwd has drifted into an unrelated git
+    repo — the same anchor ``hook_root`` already uses for hooks. An explicit
+    ``start`` (e.g. ``--root``) always wins over the env var.
+    """
+    if start is None:
+        env_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+        if env_dir:
+            return Path(env_dir).resolve()
     cwd = (start or Path.cwd()).resolve()
     if (cwd / ".memory-bank").is_dir():
         return cwd
