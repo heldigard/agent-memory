@@ -220,7 +220,14 @@ def _archive_with_summary(
 
 def _write_summary_archive(path: Path, middle: list[str], summary: str) -> None:
     """Prepend a summary header to today's archive file, then the full block."""
-    archive_dir = path.parent / TOPICS_DIR / "archive"
+    # Anchor to the bank's topics/archive whether `path` is a core file (in the
+    # bank root) or already a topic (in topics/). Anchoring on path.parent
+    # unconditionally nested topic files under topics/topics/archive — a second
+    # archive no reader looks at (2026-07-22 cleanup).
+    if path.parent.name == TOPICS_DIR:
+        archive_dir = path.parent / "archive"
+    else:
+        archive_dir = path.parent / TOPICS_DIR / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
     archive_path = archive_dir / f"{path.stem}-{date.today().isoformat()}.md"
     block = (

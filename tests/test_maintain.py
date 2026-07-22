@@ -80,3 +80,37 @@ def test_archive_with_summary_shrinks_when_tail_count_zero(tmp_path) -> None:
     matches = sorted((tmp_path / "topics" / "archive").glob("systemPatterns-*.md"))
     assert matches, "archive file must exist"
     assert "rule 0" in matches[0].read_text(encoding="utf-8")
+
+
+def test_archive_with_summary_topic_file_does_not_nest(tmp_path) -> None:
+    """Regression: a file already inside topics/ must archive to the bank's
+    canonical <bank>/topics/archive — NOT topics/topics/archive. Anchoring the
+    archive dir on path.parent unconditionally double-nested topic archives
+    (session-handoffs/agent-sessions), scattering durable memory no reader
+    looks at (2026-07-22 cleanup)."""
+    bank = tmp_path / ".memory-bank"
+    topics = bank / "topics"
+    topics.mkdir(parents=True)
+    topic = topics / "session-handoffs.md"
+    topic.write_text(
+        "# Handoffs\n" + "\n".join(f"- handoff {i}" for i in range(20)), encoding="utf-8"
+    )
+    buf = StringIO()
+    with redirect_stdout(buf):
+        changed = _archive_with_summary(topic, max_lines=6, no_llm=True)
+    assert changed is True
+
+    archive = topics / "archive"
+    matches = sorted(archive.glob("session-handoffs-*.md"))
+    assert matches, "topic archive must land in <bank>/topics/archive"
+    assert "handoff 0" in matches[0].read_text(encoding="utf-8")
+    # The nested duplicate must NOT be created.
+    assert not (topics / "topics").exists(), "topic file archived into topics/topics/"
+
+    # A core file still converges on the same canonical archive dir.
+    core = bank / "progress.md"
+    core.write_text("# Progress\n" + "\n".join(f"- p {i}" for i in range(20)), encoding="utf-8")
+    with redirect_stdout(StringIO()):
+        assert _archive_with_summary(core, max_lines=6, no_llm=True) is True
+    assert sorted(archive.glob("progress-*.md")), "core archive shares the canonical dir"
+    assert not (bank / "topics" / "topics").exists()
