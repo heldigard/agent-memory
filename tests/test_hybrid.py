@@ -246,3 +246,18 @@ def test_annotate_hits_tags_overlap_dense_and_bm25_only() -> None:
     # rerank_scores present -> tag attached
     hits_rr = _annotate_hits([0], inp, {0: 6.0})
     assert hits_rr[0]["rerank_score"] == 6.0
+
+
+def test_is_pure_bm25_hit_shared_contract() -> None:
+    """The exemption predicate shared by hybrid._filter_min_score and
+    recall.recall: only a hit tagged ``bm25`` whose dense score is 0.0 (or
+    absent) is exempt from min-score thresholding. Locking it here prevents the
+    two retrieval paths from drifting back into the 2026-07-23 recall bug."""
+    from agent_memory.features.semantic.hybrid import is_pure_bm25_hit
+
+    assert is_pure_bm25_hit(0.0, "bm25") is True
+    assert is_pure_bm25_hit(None, "bm25") is True  # float(None or 0.0) == 0.0
+    assert is_pure_bm25_hit(0.4, "bm25") is False  # bm25 but has a real score
+    assert is_pure_bm25_hit(0.0, "dense") is False  # dense is never exempt
+    assert is_pure_bm25_hit(0.8, "dense+bm25") is False  # fused has a cosine
+    assert is_pure_bm25_hit(0.0, None) is False  # untagged is not bm25

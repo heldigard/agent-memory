@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from agent_memory.features.semantic.hybrid import hybrid_search
+from agent_memory.features.semantic.hybrid import hybrid_search, is_pure_bm25_hit
 from agent_memory.features.semantic.index import index_dir, load_index
 from agent_memory.features.semantic.search import keyword_fallback
 from agent_memory.shared.config import DEFAULT_K, EPISODIC_MARKERS, MIN_SCORE
@@ -80,14 +80,15 @@ def recall(
     hits, used_fallback = _gather_hits(root, q, k)
     hits = [h for h in hits if h.get("file") != "currentTask.md"]
     if not used_fallback:
-        # Mirror hybrid._filter_min_score: pure-BM25 hits carry dense score 0.0
-        # by construction — thresholding them would silently empty recall
+        # Mirror hybrid._filter_min_score via the shared is_pure_bm25_hit so the
+        # two paths cannot drift: pure-BM25 hits carry dense score 0.0 by
+        # construction, and thresholding them would silently empty recall
         # whenever Ollama is down.
         hits = [
             h
             for h in hits
             if h.get("score") is None
-            or (h.get("method") == "bm25" and float(h.get("score") or 0.0) == 0.0)
+            or is_pure_bm25_hit(h.get("score"), h.get("method"))
             or h.get("score", 0.0) >= min_score
         ]
     for h in hits:

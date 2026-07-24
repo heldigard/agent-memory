@@ -5,6 +5,10 @@ still ranks from the manifest, so recall keeps working. Optional LLM rerank
 is opt-in (slow), never on the SessionStart auto path.
 """
 
+# vs-soft-allow: too_many_params — hybrid_search(vectors, manifest, query, k,
+# do_rerank, min_score) is the cohesive public retrieval surface: two index
+# inputs + query + three search options. Bundling the options into a param
+# object would only obscure the call sites in recall/command.
 from __future__ import annotations
 
 import functools
@@ -283,6 +287,17 @@ def hybrid_search(
     return _filter_min_score(hits, min_score)
 
 
+def is_pure_bm25_hit(score: float | None, method: str | None) -> bool:
+    """True for a pure-BM25 hit: dense score 0.0 by construction, so there is no
+    calibrated cosine to threshold against ``min_score``.
+
+    Shared by :func:`_filter_min_score` and ``recall.recall`` so the two
+    retrieval paths cannot drift on the exemption — the divergence this prevents
+    is the 2026-07-23 bug where hybrid kept pure-BM25 hits but recall dropped
+    them, silently emptying recall whenever Ollama was down."""
+    return method == "bm25" and float(score or 0.0) == 0.0
+
+
 def _filter_min_score(hits: list[dict], min_score: float) -> list[dict]:
     """Drop dense-ranked hits below ``min_score``; keep pure BM25 and unscored."""
     if min_score <= 0:
@@ -290,9 +305,8 @@ def _filter_min_score(hits: list[dict], min_score: float) -> list[dict]:
     out: list[dict] = []
     for hit in hits:
         score = float(hit.get("score") or 0.0)
-        method = str(hit.get("method") or "")
         # Pure BM25 has dense score 0 by construction — no cosine to threshold.
-        if (method == "bm25" and score == 0.0) or score >= min_score:
+        if is_pure_bm25_hit(hit.get("score"), hit.get("method")) or score >= min_score:
             out.append(hit)
     return out
 
