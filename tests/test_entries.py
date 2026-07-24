@@ -350,3 +350,17 @@ def test_is_protected_from_archive_completed_recent_vs_old() -> None:
 
 def test_is_duplicate_missing_file(tmp_path) -> None:
     assert is_duplicate(tmp_path / "absent.md", "anything") is False
+
+
+def test_supersede_entry_legacy_date_only_line(tmp_path, capsys) -> None:
+    """Legacy `- YYYY-MM-DD text` entries (no `|`/`:` after the date) must
+    actually get the superseded status — the date-anchored regex used to leave
+    them unchanged while the CLI still reported success."""
+    from agent_memory.features.bank.command import init_memory
+
+    init_memory(tmp_path)
+    progress = tmp_path / ".memory-bank" / "progress.md"
+    progress.write_text("# progress\n\n- 2026-06-28 plain legacy text\n", encoding="utf-8")
+    assert supersede_entry(tmp_path, "plain legacy", file_name="progress.md") == 0
+    line = next(line for line in progress.read_text().splitlines() if "plain legacy" in line)
+    assert parse_entry(line)["status"] == "superseded"

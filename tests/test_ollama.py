@@ -206,3 +206,15 @@ def test_embed_ready_false_when_both_probes_fail(monkeypatch) -> None:
 
     monkeypatch.setattr(ollama, "_post", _always_fail)
     assert ollama.embed_ready(timeout=1.0) is False
+
+
+def test_embed_ready_malformed_timeout_env_falls_back(monkeypatch) -> None:
+    """A malformed AGENT_MEMORY_EMBED_READY_TIMEOUT must not crash the warm
+    retry (doctor/semstatus call embed_ready unguarded)."""
+
+    def _always_fail(path, payload, timeout):
+        raise ollama.OllamaUnavailable("no daemon")
+
+    monkeypatch.setattr(ollama, "_post", _always_fail)
+    monkeypatch.setenv("AGENT_MEMORY_EMBED_READY_TIMEOUT", "abc")
+    assert ollama.embed_ready(timeout=1.0) is False

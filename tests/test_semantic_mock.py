@@ -231,3 +231,20 @@ def test_version_mismatch_forces_reset(tmp_path: Path, monkeypatch) -> None:
     assert second["chunks_reused"] == 0  # forced reset → re-embed everything
     assert second["chunks_reembedded"] == first["chunks"]
     assert second["index_changed"] is True  # "v1" existed and differed → True
+
+
+def test_recall_keeps_pure_bm25_hits_when_ollama_down(tmp_path: Path, monkeypatch) -> None:
+    """Pure-BM25 hits carry dense score 0.0 by construction; thresholding them
+    against min_score would silently empty recall whenever Ollama is down
+    (mirrors the exemption in hybrid._filter_min_score)."""
+    _patch_embed(monkeypatch)
+    _seed_bank(tmp_path)
+    build_index(tmp_path, rebuild=False)
+    import agent_memory.features.semantic.recall as recall_mod
+
+    bm25_hit = {"file": "progress.md", "score": 0.0, "method": "bm25", "text": "auth flow"}
+    monkeypatch.setattr(recall_mod, "_gather_hits", lambda root, q, k: ([bm25_hit], False))
+
+    result = recall_mod.recall(tmp_path, query="auth", min_score=0.2)
+    assert result["fallback"] is False
+    assert [h["text"] for h in result["hits"]] == ["auth flow"]

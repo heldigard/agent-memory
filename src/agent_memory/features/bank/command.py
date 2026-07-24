@@ -316,7 +316,12 @@ def add_entry(
     entry = " | ".join(seg) + f" | {text.strip()}\n"
     with path.open("a", encoding="utf-8") as handle:
         handle.write(entry)
-    _, limit = FILES.get(path.name, ("Topic memory", 60))
+    # Topic files fall outside FILES; compact them at the topic soft limit,
+    # not the generic 60-line fallback meant for core files.
+    if path.parent.name == TOPICS_DIR:
+        limit = TOPIC_SOFT_LIMIT
+    else:
+        _, limit = FILES.get(path.name, ("Topic memory", 60))
     compact_file(path, limit)
     print(f"Updated: {path}")
 

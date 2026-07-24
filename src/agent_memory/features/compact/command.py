@@ -54,8 +54,12 @@ def archive_old_lines(path: Path, lines: list[str], max_lines: int) -> list[str]
 
 def _write_archive(path: Path, archivable: list[str], protected_count: int) -> None:
     """Append the archivable block to today's archive file for ``path``."""
-    memory = path.parent
-    archive_dir = memory / TOPICS_DIR / "archive"
+    # Topic files already live under <bank>/topics/: anchor the archive there
+    # instead of nesting topics/topics/archive (mirror of maintain's guard).
+    if path.parent.name == TOPICS_DIR:
+        archive_dir = path.parent / "archive"
+    else:
+        archive_dir = path.parent / TOPICS_DIR / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
     archive_path = archive_dir / f"{path.stem}-{date.today().isoformat()}.md"
     note = f" ({protected_count} active/live entries kept inline)" if protected_count else ""

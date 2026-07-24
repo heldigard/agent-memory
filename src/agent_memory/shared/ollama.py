@@ -116,7 +116,10 @@ def embed_ready(timeout: float = 3.0, *, model: str = DEFAULT_EMBED_MODEL) -> bo
     """
     if _embed_probe(timeout, model):
         return True
-    warm = float(os.environ.get("AGENT_MEMORY_EMBED_READY_TIMEOUT", "20"))
+    try:
+        warm = float(os.environ.get("AGENT_MEMORY_EMBED_READY_TIMEOUT", "20"))
+    except ValueError:
+        warm = 20.0  # malformed env override must not crash doctor/semstatus
     return _embed_probe(max(warm, timeout), model)
 
 

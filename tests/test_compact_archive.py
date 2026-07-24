@@ -226,3 +226,34 @@ def test_archive_topic_no_index_entry_message(tmp_path: Path, capsys) -> None:
     # _index.md has no entry for orphan.md
     archive_topic(tmp_path, "orphan", force=True)
     assert "no _index.md entry found" in capsys.readouterr().out
+
+
+def test_write_archive_topic_file_lands_in_topics_archive(tmp_path: Path) -> None:
+    """A topic file already lives under <bank>/topics/ — its archive must land
+    in topics/archive/, not a double-nested topics/topics/archive/ (the same
+    bug commit 8099ae4 fixed in maintain)."""
+    bank = _bank(tmp_path)
+    topic = bank / "topics" / "deep.md"
+    topic.write_text("# deep\n", encoding="utf-8")
+    _write_archive(topic, ["- 2019-01-01T00:00:00Z old line"], 0)
+    assert (bank / "topics" / "archive").is_dir()
+    assert not (bank / "topics" / "topics").exists()
+
+
+def test_add_entry_topic_uses_topic_soft_limit(tmp_path: Path) -> None:
+    """`add --file topics/foo.md` must compact at TOPIC_SOFT_LIMIT, not the
+    generic 60-line FILES fallback — a 100-line topic stays intact."""
+    from agent_memory.features.bank.command import add_entry
+    from agent_memory.shared.config import TOPIC_SOFT_LIMIT
+
+    bank = _bank(tmp_path)
+    topic = bank / "topics" / "deep.md"
+    topic.write_text(
+        "# deep\n" + "\n".join(f"- 2026-01-01T00:00:00Z line {i}" for i in range(100)) + "\n",
+        encoding="utf-8",
+    )
+    assert TOPIC_SOFT_LIMIT > 101  # premise: 101 lines only trip the 60-line fallback
+    add_entry(tmp_path, "topics/deep.md", "one more line", status="completed")
+    lines = topic.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 102  # header + 100 + new entry; nothing archived
+    assert not (bank / "topics" / "archive").exists()

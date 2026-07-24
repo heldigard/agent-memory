@@ -80,7 +80,16 @@ def recall(
     hits, used_fallback = _gather_hits(root, q, k)
     hits = [h for h in hits if h.get("file") != "currentTask.md"]
     if not used_fallback:
-        hits = [h for h in hits if h.get("score") is None or h.get("score", 0.0) >= min_score]
+        # Mirror hybrid._filter_min_score: pure-BM25 hits carry dense score 0.0
+        # by construction — thresholding them would silently empty recall
+        # whenever Ollama is down.
+        hits = [
+            h
+            for h in hits
+            if h.get("score") is None
+            or (h.get("method") == "bm25" and float(h.get("score") or 0.0) == 0.0)
+            or h.get("score", 0.0) >= min_score
+        ]
     for h in hits:
         h["type"] = classify_memory(h.get("file", ""))
     return {

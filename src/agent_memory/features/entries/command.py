@@ -39,12 +39,22 @@ def _with_superseded_status(line: str) -> str:
     """Return one structured entry line with ``status:superseded``."""
     if re.search(r"\|\s*status:[A-Za-z]+\b", line):
         return re.sub(r"\|\s*status:[A-Za-z]+\b", "| status:superseded", line, count=1)
-    return re.sub(
+    updated = re.sub(
         r"^(\s*-\s*\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)(?=\s*(?:\||:))",
         r"\1 | status:superseded",
         line,
         count=1,
     )
+    if updated != line:
+        return updated
+    # Legacy date-only entry with no `|`/`:` after the date: append the status
+    # segment at EOL — parse_entry reads status from any segment. Without this
+    # branch supersede reported success while rewriting nothing.
+    body = line.rstrip("\n")
+    if re.match(r"\s*-\s*\d{4}-\d{2}-\d{2}", body):
+        newline = "\n" if line.endswith("\n") else ""
+        return f"{body} | status:superseded{newline}"
+    return line
 
 
 def supersede_entry(root: Path, query: str, file_name: str | None = None) -> int:

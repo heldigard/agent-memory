@@ -24,6 +24,7 @@ uv pip install -e ".[test]"
 
 ```bash
 agent-memory --version                # print version + exit
+agent-memory --root /path/to/repo …   # global flag: run against another project's bank
 agent-memory init                     # bootstrap .memory-bank/ in this project
 agent-memory status                   # file counts vs budgets + staleness
 agent-memory read                     # bounded startup context (add --deep for bigger budgets)
@@ -64,7 +65,7 @@ agent-memory auto-maintain-check --json  # staleness + budget only (fast path)
 agent-memory compact                  # enforce line budgets on core files
 agent-memory compact --target-ratio 0.8  # proactively resolve 80% budget warnings
 agent-memory compact --topics         # also compact topic files
-agent-memory archive-topic <slug>     # move whole topic to topics/archive/
+agent-memory archive-topic <slug>     # move whole topic to topics/archive/ (--force ignores dangling refs)
 
 agent-memory handoff                  # session handoff summary for activeContext.md
 agent-memory coord                    # cross-CLI agent registry status
@@ -81,13 +82,16 @@ agent-memory status --json            # bank snapshot for hooks/quota tooling
 | Variable | Default | Effect |
 |---|---|---|
 | `AGENT_MEMORY_OLLAMA_URL` | `http://localhost:11434` | Daemon URL override |
+| `AGENT_MEMORY_OLLAMA_TIMEOUT` | `120` | Per-call Ollama timeout (seconds) |
 | `AGENT_MEMORY_EMBED_WORKERS` | `4` | Parallel embed threads for `semindex` (set `1` for serial) |
 | `CODEQ_SUMMARY_MODEL` | `hf.co/TeichAI/Qwen3.5-9B-Fable-5-v1-GGUF:Q4_K_M` | Maintain/audit local model (shared with codeq summary) |
 | `CODEQ_NO_LLM` / `PROJECT_MEMORY_NO_LLM` | unset | Skip all Ollama calls (deterministic only) |
 | `AGENT_MEMORY_CLOUD_FALLBACK` | `1` | `maintain` falls back to the ecosystem `cheap_llm` cascade when Ollama is down (`0` disables) |
 | `AGENT_MEMORY_EMBED_READY_TIMEOUT` | `20` | Warm-retry budget (seconds) for the `embed_ready` probe — cold models can exceed the fast 3s probe |
 | `MEMORY_ACTIVE_WINDOW_HOURS` | `6.0` | Freshness window for completed-entry archival |
+| `MEMORY_INJECTION_ACTIVE_WINDOW_HOURS` | `12.0` | Window for entries injected at SessionStart |
 | `MEMORY_STALENESS_DAYS` | `14` | Staleness threshold for `auto-maintain-check` |
+| `CLAUDE_PROJECT_DIR` | unset | Project-root override (resists cwd drift in spawned shells) |
 
 ### Always-on indexing (Linux / Ubuntu native)
 
